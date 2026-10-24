@@ -185,6 +185,10 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:10px 0 20px}
 <section id="inputs">
   <div class="card">
     <h2><span class="num">1</span>פרטי פרויקט</h2>
+    <details class="help"><summary>הסבר</summary><div>
+      יש להזין שם פרויקט, בניין, מספר קומות בבניין (מעל קומת קרקע) ומיקום בארץ (האם הבניין באזור בקעת הירדן והערבה – משנה את מקדמי ההתלכדות לפי חח״י).<br>
+      שאר הנתונים בקוביה – סה״כ יח״ד בבניין ו־Σ שיא ביקוש דירתי – מחושבים אוטומטית מהנתונים שמוזנים בקוביה 2 (מקבצי קומות ודירות), לפי מחשבון החיבורים של חברת החשמל.
+    </div></details>
     <div class="grid g2">
       <label class="f"><span class="lbl">שם פרויקט</span><span class="fld"><input id="project" type="text" title="שם הפרויקט – יופיע בייצוא"></span></label>
       <label class="f"><span class="lbl">בניין</span><span class="fld"><input id="building" type="text" title="שם / מספר הבניין"></span></label>
@@ -194,8 +198,8 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:10px 0 20px}
       <label class="f"><span class="lbl">אזור בקעת הירדן והערבה</span><span class="fld"><select id="jordan" data-def="no" title="משנה את טבלת מקדמי ההתלכדות לפי מחשבון חח״י"><option value="no">לא</option><option value="yes">כן</option></select></span></label>
     </div>
     <div class="grid g2" style="margin-top:10px">
-      <label class="f"><span class="lbl">סה״כ יח״ד בבניין</span><span class="ro hl" id="unitsTotal" title="מחושב אוטומטית ממקבצי הקומות">0</span></label>
-      <label class="f"><span class="lbl">Σ שיא ביקוש דירתי [kVA]</span><span class="ro" id="kvaTotal" title="סכום שיא הביקוש הלא מתלכד של כל הדירות">0</span></label>
+      <label class="f"><span class="lbl">סה״כ יח״ד בבניין – מחושב</span><span class="ro hl" id="unitsTotal" title="מחושב אוטומטית ממקבצי הקומות">0</span></label>
+      <label class="f"><span class="lbl">Σ שיא ביקוש דירתי [kVA] – מחושב לפי מחשבון חיבורים חח״י</span><span class="ro" id="kvaTotal" title="סכום שיא הביקוש הלא מתלכד של כל הדירות – מחושב לפי מחשבון החיבורים של חברת החשמל">0</span></label>
     </div>
   </div>
 
@@ -260,7 +264,7 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:10px 0 20px}
 <footer>טיקטין תכנון חשמל · <span id="ver2"></span></footer>
 
 <script>
-const VERSION = 'V10';
+const VERSION = 'V11';
 document.getElementById('ver').textContent = 'גרסה ' + VERSION;
 document.getElementById('ver2').textContent = 'גרסה ' + VERSION;
 
