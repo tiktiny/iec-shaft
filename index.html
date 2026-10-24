@@ -99,6 +99,15 @@ th{background:#f1f3f5;font-weight:600}
 .tblwrap{overflow:auto;max-height:520px;border-radius:8px}
 .tblwrap thead th{position:sticky;top:0}
 .vizbar{margin:0 0 8px}
+.vizpage{position:fixed;inset:0;background:#fff;z-index:1000;display:flex;flex-direction:column}
+.vzhead{display:flex;align-items:center;gap:10px 16px;flex-wrap:wrap;padding:8px 16px;border-bottom:3px solid var(--red);background:#fff}
+.vzhead img{height:42px}
+.vzhead b{font-size:18px;flex:1;min-width:200px}
+.vzbtns{display:flex;gap:8px;flex-wrap:wrap}
+.vzb.on{background:var(--red);color:#fff;border-color:var(--red)}
+.vzbody{flex:1;min-height:0;overflow:auto;padding:8px;background:#fff}
+.vzbody svg{display:block;margin:0 auto;height:100%;width:auto;max-width:100%}
+@media (max-width:800px){.vzbody svg{height:auto;width:100%}}
 .vizbox{border:1px solid var(--line);border-radius:8px;background:#fff;padding:6px;margin-bottom:10px}
 .vizbox svg{width:100%;height:auto;display:block}
 .svgbox{border:1px solid var(--line);border-radius:8px;background:#fff;overflow:auto;margin-bottom:10px}
@@ -267,7 +276,7 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:10px 0 20px}
 <footer>טיקטין תכנון חשמל · <span id="ver2"></span></footer>
 
 <script>
-const VERSION = 'V12';
+const VERSION = 'V13';
 document.getElementById('ver').textContent = 'גרסה ' + VERSION;
 document.getElementById('ver2').textContent = 'גרסה ' + VERSION;
 
@@ -611,9 +620,10 @@ function drawShaftNiche(o){
   cabH=cabHu+cabHl, frameH=3;
   const slab=45, slabS=30, fillT=15, floorH=280+45,   // 2.80 נטו רצפה–תקרה + 45 רצפה (ללא מידה)
    topShow=110, botShow=110, wallT=20, wallMid=25;
-  const x0=34, shL=x0+wallT, shR=shL+o.W, nL=shR+wallMid, nR=nL+nicheW;
-  const dimX=nR+wallT, secX=dimX+80, totW=secX+20+depth+30+40;
-  const FL2=topShow, FL1=FL2+floorH, yBot=FL1+slab+botShow+20, totH=yBot+62;
+  const x0=154, shL=x0+wallT, shR=shL+o.W, nL=shR+wallMid, nR=nL+nicheW;
+  const dimX=nR+wallT, secX=dimX+160, secEnd=secX+20+depth+30+40, ox=secEnd+40-(x0-120), totW=ox+dimX+120+30;   // מבט העל מימין לחתך הצד
+  const leafW=cab12?nicheW/2:nicheW;   // ארון 6 – דלת אחת, ארון 12 – שתי דלתות
+  const FL2=topShow, FL1=FL2+floorH, yBot=FL1+slab+botShow+20, y0p=FL2+slab+25, totH=Math.max(yBot+62,y0p+20+depth+leafW+60+20+18);
   const nTop=FL1-nicheH;
   // רצפה בחתך: ריצוף, מילוי, תקרת בטון
   const floorBuild=(x,y,w,shaft)=>{ let q='';
@@ -626,7 +636,7 @@ function drawShaftNiche(o){
   const R=(x,y,w,h,f,extra='')=>`<rect x="${X(x)}" y="${Y(y)}" width="${X(w)}" height="${Y(h)}" fill="${f}" ${extra}/>`;
   const L=(x1,y1,x2,y2,s,w=1,extra='')=>`<line x1="${X(x1)}" y1="${Y(y1)}" x2="${X(x2)}" y2="${Y(y2)}" stroke="${s}" stroke-width="${w}" ${extra}/>`;
   const P=(d,s,w,extra='')=>`<path d="${d}" fill="none" stroke="${s}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round" ${extra}/>`;
-  const T=(x,y,t,sz=11,f='#1f2328',anc='middle',extra='')=>{const a=anc==='middle'?'middle':(anc==='start'?'end':'start');return `<text x="${X(x)}" y="${Y(y)}" font-size="${sz}" fill="${f}" text-anchor="${a}" direction="rtl" unicode-bidi="embed" ${extra}>${t}</text>`;};
+  const T=(x,y,t,sz=11,f='#1f2328',anc='middle',extra='')=>{if(o.mirror&&anc!=='middle') anc=anc==='start'?'end':'start';const a=anc==='middle'?'middle':(anc==='start'?'end':'start');const tf=o.mirror?` transform="translate(${(2*x*S).toFixed(1)},0) scale(-1,1)"`:'';return `<text x="${X(x)}" y="${Y(y)}" font-size="${sz}" fill="${f}" text-anchor="${a}" direction="rtl" unicode-bidi="embed" ${extra}${tf}>${t}</text>`;};
   const halo='stroke="#fff" stroke-width="3" paint-order="stroke"';
   const concrete=(x,y,w,h)=>R(x,y,w,h,`url(#${uid}cc)`,'stroke="#8d887f" stroke-width="0.8"')+R(x,y,w,h,'#000',`filter="url(#${uid}nz)" opacity="0.2"`);
   const arr=c=>`marker-start="url(#${uid}a${c})" marker-end="url(#${uid}a${c})"`;
@@ -752,6 +762,13 @@ function drawShaftNiche(o){
     g+=`<circle cx="${X(gx)}" cy="${Y(gbY+1.3)}" r="1.5" fill="#5b3a17"/>`;
   }
   g+=R(nL,nTop,nicheW,18,`url(#${uid}sd)`);
+  /* הרחקה 1 מ' מהפיר ומהארון לדירה / שטח עיקרי (קרינה) */
+  { const zc='#2e7d32', zy1=FL2+slab, zy2=FL1, yd=FL1-175;
+    const zone=(x1,x2,aw,awX,lx)=>{ g+=R(x1,zy1,x2-x1,zy2-zy1,zc,'opacity=".07"')+L(aw,zy1,aw,zy2,zc,1,'stroke-dasharray="6 4"');
+      g+=concrete(awX,zy1,20,zy2-zy1)+T(lx,zy1+28,'דירה',9.5,'#5f6670','middle','font-weight="700"');
+      g+=L(x1,yd,x2,yd,zc,1.1,arr('z'))+T((x1+x2)/2,yd-3,'100 ס״מ לפחות',10,zc,'middle','font-weight="700" '+halo)+T((x1+x2)/2,yd+12,'הרחקת קרינה',8.5,zc,'middle',halo); };
+    zone(x0-100,x0,x0-100,x0-120,(x0-120)/2);
+    zone(dimX,dimX+100,dimX+100,dimX+100,dimX+140); }
 
   /* מספרי הסבר */
   const C=(x,y,k)=>`<circle cx="${X(x)}" cy="${Y(y)}" r="${(4.6*S).toFixed(1)}" fill="#c8202f" stroke="#fff" stroke-width="1.5"/>`+T(x,y+2.6,String(k),8,'#fff','middle','font-weight="700"');
@@ -768,7 +785,9 @@ function drawShaftNiche(o){
     [sleeveTxt+' במעבר תקרה','#1f2328'],
     ['סולם כבלים ותפסנים – 50 ס״מ מהרצפה ואז כל 1 מ׳','#1f2328'],
     ['צינור שרשורי 110 מ״מ בחציית המחיצה','#6b5f12'],
-    [`רדיוס כיפוף מינימלי לכבל ${o.alt} ממ״ר: R=${Rb} ס״מ`,'#0b6b2b']];
+    [`רדיוס כיפוף מינימלי לכבל ${o.alt} ממ״ר: R=${Rb} ס״מ`,'#0b6b2b'],
+    ['מרחק 1 מ׳ לפחות מהפיר ומהארון לדירה / שטח עיקרי – קרינה','#2e7d32'],
+    [(cab12?'שתי דלתות':'דלת אחת')+' בנישה · פתיחה 90° · 60 ס״מ פנויים למילוט עד הקיר ממול','#c8202f']];
   if(o.apts>12) notes.push(['⚠ בקומה '+o.apts+' דירות – נדרש יותר מארון 12 אחד; מוצג ארון אחד','#c8202f']);
   if(warn) notes.push([`⚠ חסר מקום לרדיוס הכיפוף ביציאה: נדרש ${(2*Rb).toFixed(0)} ס״מ אופקית, קיים ${dxO.toFixed(0)}`,'#c8202f']);
   g+=C(shR-7,FL1+slab+22,1);
@@ -783,6 +802,8 @@ function drawShaftNiche(o){
   g+=C(nL+7,FL1-plinth/2-1,9);
   g+=C(lR+9,FL1+slab/2,10);
   g+=C(lR+9,FL1-150,11);
+  g+=C(x0-50,FL1-120,14);
+  g+=C(dimX+88,FL1-60,14);
   { const lx=dimX+4, ly0=FL1+slab+40;
     g+=T(lx,ly0-10,'מקרא',10.5,'#1f2328','start','font-weight="700"');
     notes.forEach(([t,c],i)=>{ const y=ly0+i*8.2; g+=C(lx+5,y-2.6,i+1).replace(/r="[\d.]+"/,`r="${(3.6*S).toFixed(1)}"`); g+=T(lx+12,y,t,9.5,c,'start'); }); }
@@ -829,6 +850,36 @@ function drawShaftNiche(o){
     g+=L(bx,ty,bx+4,ty,'#c8202f',1)+T(bx+2,ty-3,'4',9.5,'#c8202f','middle','font-weight="700" '+halo);
   }
 
+  /* מבט על – פיר, נישה, דלתות פתוחות 90° ו-60 ס"מ פנויים למילוט עד הקיר ממול */
+  { const g0=g; g='';
+    const zc='#2e7d32', yB=y0p, yI=yB+20, yF=yI+depth, yW=yF+leafW+60, xa=x0-120, xb=dimX+120;
+    g+=T(shL,yB-8,'מבט על – פיר, נישה ומסדרון',11,'#1f2328','end','font-weight="700"');
+    g+=concrete(xa,yB,xb-xa,20);
+    g+=concrete(xa,yW,xb-xa,20);
+    g+=R(xa+20,yI,xb-xa-40,yW-yI,'#f7f5f0');
+    g+=R(x0-100,yI,100,yW-yI,zc,'opacity=".07"')+R(dimX,yI,100,yW-yI,zc,'opacity=".07"');
+    g+=concrete(xa,yI,20,yW-yI)+concrete(dimX+100,yI,20,yW-yI);
+    g+=T(xa+10,yI+20,'דירה',9,'#5f6670','middle','font-weight="700"')+T(dimX+110,yI+20,'דירה',9,'#5f6670','middle','font-weight="700"');
+    g+=concrete(x0,yI,wallT,depth)+concrete(shR,yI,wallMid,depth)+concrete(nR,yI,wallT,depth);
+    g+=R(shL,yI,o.W,depth,'#cfcac2');
+    g+=L(shL,yF,shR,yF,'#555',2.2);
+    xs.forEach((x,i)=>{ const cy=yI+o.wall+o.d/2; g+=`<circle cx="${X(x)}" cy="${Y(cy)}" r="${(o.d/2*S).toFixed(1)}" fill="${i<o.net?'#3c9a4a':'#fff'}" stroke="${i<o.net?'#1d5a29':'#888'}" stroke-width="1" ${i<o.net?'':'stroke-dasharray="2 2"'}/>`; });
+    g+=R(nL,yI,nicheW,depth,'#ebe8e2');
+    g+=R(cabX,yI+4,cabW,frameD,`url(#${uid}mt)`,'stroke="#8a8f94" stroke-width=".8"');
+    g+=T(cabX+cabW/2,yI+4+frameD/2+3,`ארון ${meters}`,8.5,'#333');
+    const leaf=(hx,dir)=>{ const tip=hx+dir*leafW;
+      g+=P(`M${X(tip)} ${Y(yF)} A${X(leafW)} ${X(leafW)} 0 0 ${dir>0?0:1} ${X(hx)} ${Y(yF+leafW)}`,'#c8202f',1,'stroke-dasharray="5 4"');
+      g+=R(hx-(dir>0?0:2.5),yF,2.5,leafW,'#7d858c','stroke="#4f565c" stroke-width=".5"'); };
+    if(cab12){ leaf(nL,1); leaf(nR,-1); } else leaf(nR,-1);
+    const dx=nR+10;
+    g+=L(dx,yF+leafW,dx,yW,'#c8202f',1.1,arr('r'))+L(nR-2,yF+leafW,dx+4,yF+leafW,'#c8202f',.6);
+    g+=T(dx+3,(yF+leafW+yW)/2+3,'60 פנוי למילוט',10,'#c8202f','start','font-weight="700" '+halo);
+    g+=T((shL+shR)/2,(yF+yW)/2+3,'מסדרון / לובי קומתי',10,'#5f6670','middle');
+    g+=T((xa+xb)/2,yW+13,'קיר ממול',9.5,'#5f6670','middle',halo);
+    g+=C(cabX+cabW/2,yF+leafW*0.55,15);
+    g=g0+`<g transform="translate(${X(ox)},0)">${g}</g>`;
+  }
+
   const defs=`<defs>
    <linearGradient id="${uid}cc" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d9d5cd"/><stop offset="1" stop-color="#c6c1b7"/></linearGradient>
    <linearGradient id="${uid}sh" x1="0" x2="1"><stop offset="0" stop-color="#8f8b84"/><stop offset=".5" stop-color="#b3afa7"/><stop offset="1" stop-color="#8f8b84"/></linearGradient>
@@ -843,27 +894,47 @@ function drawShaftNiche(o){
    <pattern id="${uid}fl" width="6" height="6" patternUnits="userSpaceOnUse"><rect width="6" height="6" fill="#e4ded2"/><circle cx="1.5" cy="1.5" r=".7" fill="#b3aa98"/><circle cx="4.5" cy="4" r=".5" fill="#c2b9a8"/></pattern>
    <filter id="${uid}nz" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.55" numOctaves="3" seed="${o.alt}"/><feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1.6 -0.55"/><feComposite in2="SourceGraphic" operator="in"/></filter>
    <marker id="${uid}ar" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 2 L10 5 L0 8z" fill="#c8202f"/></marker>
+   <marker id="${uid}az" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 2 L10 5 L0 8z" fill="#2e7d32"/></marker>
    <marker id="${uid}ag" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 2 L10 5 L0 8z" fill="#555"/></marker>
   </defs>`;
-  return `<svg viewBox="0 0 ${X(totW)} ${Y(totH)}" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI,Arial">${defs}${g}</svg>`;
+  return `<svg viewBox="0 0 ${X(totW)} ${Y(totH)}" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI,Arial">${defs}${o.mirror?`<g transform="translate(${X(totW)},0) scale(-1,1)">${g}</g>`:g}</svg>`;
 }
 
 /* ---------- הדמיה: פיר חח"י ונישת מונים בקומה עם הכי הרבה כבלים ---------- */
-const VIZ={'95':false,'240':false};
+const VZ={alt:'95',mirror:false,open:false};
 function vizOpts(r,name){
   const fl=LAST.floors.find(f=>f.n>0); if(!fl||!r.tot) return null;
   const f=fl.f, feed=r.assign[f].no;
   const pass=r.cables.filter(c=>c.top>=f).map(c=>c.no);
   const others=pass.filter(no=>no!==feed).sort((a,b)=>b-a);
   const labels=[...others,feed];
-  return {alt:+name,W:r.width,d:r.D,gap:r.sp,wall:r.wall,R:r.bend,net:labels.length,spare:r.spare,apts:fl.n,floor:f,labels,feedNo:feed};
+  return {alt:+name,W:r.width,d:r.D,gap:r.sp,wall:r.wall,R:r.bend,net:labels.length,spare:r.spare,apts:fl.n,floor:f,labels,feedNo:feed,mirror:VZ.mirror};
 }
 function vizBlock(r,name){
-  const on=VIZ[name], o=on?vizOpts(r,name):null;
-  return `<div class="vizbar"><button class="btn small vizbtn" data-viz="${name}" title="הדמיה של הפיר ונישת המונים בקומה עם הכי הרבה כבלים">🏗 ${on?'הסתרת הדמיה':'הצגת הדמיה'}</button></div>`+
-    (on?`<div class="vizbox">${o?drawShaftNiche(o):'<div class="muted">אין נתונים להדמיה</div>'}</div>`:'');
+  return `<div class="vizbar"><button class="btn small vizbtn" data-viz="${name}" title="פתיחת הדמיה של הפיר ונישת המונים במסך מלא">🏗 הצגת הדמיה</button></div>`;
 }
-document.addEventListener('click',e=>{ const b=e.target.closest('.vizbtn'); if(!b) return; VIZ[b.dataset.viz]=!VIZ[b.dataset.viz]; recalc(); });
+function vizRender(){
+  let pg=document.getElementById('vizPage');
+  if(!VZ.open){ if(pg) pg.remove(); document.body.style.overflow=''; return; }
+  if(!pg){ pg=document.createElement('div'); pg.id='vizPage'; pg.className='vizpage'; document.body.appendChild(pg); }
+  document.body.style.overflow='hidden';
+  const r=LAST&&LAST['a'+VZ.alt], o=r?vizOpts(r,VZ.alt):null;
+  const logo=(document.querySelector('header img')||{}).src||'';
+  pg.innerHTML=`<div class="vzhead">${logo?`<img src="${logo}" alt="טיקטין">`:''}<b>הדמיה – פיר חח״י ונישת מונים${o?` · קומה ${o.floor}`:''}</b>
+    <span class="vzbtns"><button class="btn vzb${VZ.alt==='95'?' on':''}" data-a="95" title="הדמיה לחלופת כבל 95">כבל 95</button><button class="btn vzb${VZ.alt==='240'?' on':''}" data-a="240" title="הדמיה לחלופת כבל 240">כבל 240</button>
+    <button class="btn vzb${VZ.mirror?' on':''}" data-m="1" title="היפוך: המונים בצד שמאל והפיר בצד ימין">⇆ מצב ראי</button><button class="btn primary" data-back="1" title="חזרה לטופס">→ חזרה לטופס</button></span></div>
+    <div class="vzbody">${o?drawShaftNiche(o):'<div class="muted" style="padding:20px">אין נתונים להדמיה – יש להזין דירות בטופס</div>'}</div>`;
+}
+function vizOpen(a){ VZ.alt=a; VZ.open=true; try{ history.pushState({viz:1},''); }catch(e){} vizRender(); }
+window.addEventListener('popstate',()=>{ if(VZ.open){ VZ.open=false; vizRender(); } });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&VZ.open) history.back(); });
+document.addEventListener('click',e=>{
+  const b=e.target.closest('.vizbtn'); if(b){ vizOpen(b.dataset.viz); return; }
+  const t=e.target.closest('#vizPage button'); if(!t) return;
+  if(t.dataset.back){ history.back(); return; }
+  if(t.dataset.m){ VZ.mirror=!VZ.mirror; vizRender(); return; }
+  if(t.dataset.a){ VZ.alt=t.dataset.a; vizRender(); }
+});
 
 function renderAlt(r,el,name,color){
   const st = r.over.length ? `<div class="status badb">חריגה: בקומות ${r.over.join(', ')} הזרם של קומה בודדת עובר ${r.limit}A – כבל אחד לא מספיק לקומה. מומלץ כבל 240 או פיצול.</div>`
