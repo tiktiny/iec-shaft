@@ -98,6 +98,9 @@ th,td{border:1px solid var(--line);padding:5px 6px;text-align:center}
 th{background:#f1f3f5;font-weight:600}
 .tblwrap{overflow:auto;max-height:520px;border-radius:8px}
 .tblwrap thead th{position:sticky;top:0}
+.vizbar{margin:0 0 8px}
+.vizbox{border:1px solid var(--line);border-radius:8px;background:#fff;padding:6px;margin-bottom:10px}
+.vizbox svg{width:100%;height:auto;display:block}
 .svgbox{border:1px solid var(--line);border-radius:8px;background:#fff;overflow:auto;margin-bottom:10px}
 .svgbox.elev{max-height:620px}
 .svgbox svg{display:block;margin:auto}
@@ -264,7 +267,7 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:10px 0 20px}
 <footer>טיקטין תכנון חשמל · <span id="ver2"></span></footer>
 
 <script>
-const VERSION = 'V11';
+const VERSION = 'V12';
 document.getElementById('ver').textContent = 'גרסה ' + VERSION;
 document.getElementById('ver2').textContent = 'גרסה ' + VERSION;
 
@@ -597,10 +600,276 @@ const fmt=(v,d=1)=> (Math.round(v*10**d)/10**d).toLocaleString('he-IL');
 
 /* ---------- render results ---------- */
 let LAST=null;
+function drawShaftNiche(o){
+  const S=1.6, uid='u'+o.alt;
+  const X=v=>(+v*S).toFixed(1), Y=X;
+  const sleeveD=o.alt===95?11.4:16.8, sleeveTxt=o.alt===95?'צינור 4״':'שרוול 6״';
+  const cab12=o.apts>6, meters=cab12?12:6;   // ארון 6 עד 6 דירות, ארון 12 (=9) מעל 6
+  // מידות לפי אתר המעגל: נישה 6 מונים 90, 9/12 מונים 145 (אותו ארון); מסגרת 62×34 / 115×34; עומק 45; גובה 240
+  const nicheW=cab12?145:90, nicheH=240, plinth=10, door=230, depth=45, baseH=4, frameD=34;   // baseH = צוקל הבטון שעליו יושב הארון (~4)
+  const cabW=cab12?115:62, cabHu=125, cabHl=79,   // גובה ארון 204 (6 מונים 62×34×204, 12 מונים 115×34×204)
+  cabH=cabHu+cabHl, frameH=3;
+  const slab=45, slabS=30, fillT=15, floorH=280+45,   // 2.80 נטו רצפה–תקרה + 45 רצפה (ללא מידה)
+   topShow=110, botShow=110, wallT=20, wallMid=25;
+  const x0=34, shL=x0+wallT, shR=shL+o.W, nL=shR+wallMid, nR=nL+nicheW;
+  const dimX=nR+wallT, secX=dimX+80, totW=secX+20+depth+30+40;
+  const FL2=topShow, FL1=FL2+floorH, yBot=FL1+slab+botShow+20, totH=yBot+62;
+  const nTop=FL1-nicheH;
+  // רצפה בחתך: ריצוף, מילוי, תקרת בטון
+  const floorBuild=(x,y,w,shaft)=>{ let q='';
+    q+=concrete(x,y+fillT,w,slabS);
+    if(!shaft){ q+=R(x,y+2,w,fillT-2,`url(#${uid}fl)`,'stroke="#a49c8e" stroke-width="0.5"');
+      q+=R(x,y,w,2,'#cfc6b6','stroke="#8f8676" stroke-width="0.4"');
+      for(let t=x+30;t<x+w;t+=30) q+=L(t,y,t,y+2,'#8f8676',0.6); }
+    return q; };
+  let g='';
+  const R=(x,y,w,h,f,extra='')=>`<rect x="${X(x)}" y="${Y(y)}" width="${X(w)}" height="${Y(h)}" fill="${f}" ${extra}/>`;
+  const L=(x1,y1,x2,y2,s,w=1,extra='')=>`<line x1="${X(x1)}" y1="${Y(y1)}" x2="${X(x2)}" y2="${Y(y2)}" stroke="${s}" stroke-width="${w}" ${extra}/>`;
+  const P=(d,s,w,extra='')=>`<path d="${d}" fill="none" stroke="${s}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round" ${extra}/>`;
+  const T=(x,y,t,sz=11,f='#1f2328',anc='middle',extra='')=>{const a=anc==='middle'?'middle':(anc==='start'?'end':'start');return `<text x="${X(x)}" y="${Y(y)}" font-size="${sz}" fill="${f}" text-anchor="${a}" direction="rtl" unicode-bidi="embed" ${extra}>${t}</text>`;};
+  const halo='stroke="#fff" stroke-width="3" paint-order="stroke"';
+  const concrete=(x,y,w,h)=>R(x,y,w,h,`url(#${uid}cc)`,'stroke="#8d887f" stroke-width="0.8"')+R(x,y,w,h,'#000',`filter="url(#${uid}nz)" opacity="0.2"`);
+  const arr=c=>`marker-start="url(#${uid}a${c})" marker-end="url(#${uid}a${c})"`;
+
+  /* רקעים */
+  [[0,FL2+fillT],[FL2+slab,FL1+fillT],[FL1+slab,yBot]].forEach(([a,b])=>g+=R(shL,a,o.W,b-a,`url(#${uid}sh)`));
+  g+=R(nL,0,nicheW,FL2,'#efece6')+R(nL,FL1+slab,nicheW,yBot-FL1-slab,'#efece6');
+  g+=R(nL,nTop,nicheW,nicheH,`url(#${uid}nb)`);
+
+  /* סולם כבלים בפיר */
+  const n=o.net+o.spare, xs=[];
+  for(let i=0;i<n;i++) xs.push(shL+o.wall+o.d/2+i*(o.d+o.gap));
+  const lL=xs[0]-o.d/2-5, lR=xs[n-1]+o.d/2+5;
+  const segs=[[0,FL2+fillT],[FL2+slab,FL1+fillT],[FL1+slab,yBot]];
+  // תומכים: 50 ס"מ מעל הרצפה ואז כל 1 מ'
+  const supY=[]; [FL2,FL1,FL1+floorH].forEach(F=>{ for(let k=0;k<3;k++) supY.push(F-50-100*k); });
+  const supIn=(a,b)=>supY.filter(y=>y>a+2&&y<b-2);
+  segs.forEach(([a,b])=>{
+    for(const y of supIn(a,b)) g+=R(lL,y,lR-lL,2.2,`url(#${uid}gv)`,'stroke="#7d848c" stroke-width="0.4"');
+    [lL,lR-3].forEach(x=>g+=R(x,a,3,b-a,`url(#${uid}gvv)`,'stroke="#6f767e" stroke-width="0.4"'));
+  });
+
+  /* בטון */
+  [FL2,FL1].forEach(y=>{ g+=floorBuild(0,y,shL,false)+floorBuild(shL,y,o.W,true)+floorBuild(shR,y,dimX+6-shR,false); });
+  g+=concrete(x0,0,wallT,yBot)+concrete(shR,0,wallMid,yBot)+concrete(nR,0,wallT,yBot);
+  g+=concrete(nL,FL2+slab,nicheW,nTop-FL2-slab);
+  g+=R(dimX,FL1-1.5,6,1.5,'#b9b2a6');
+
+  /* שרוולים בתקרות */
+  xs.forEach((x,i)=>{
+    [FL2,FL1].forEach(y=>{
+      if(y===FL1&&i===o.net-1) return;
+      g+=R(x-sleeveD/2,y+fillT-5,sleeveD,slabS+10,`url(#${uid}pvc)`,'stroke="#6a6f75" stroke-width="0.6" rx="1"');
+      if(i>=o.net) g+=R(x-sleeveD/2-1,y+fillT-7,sleeveD+2,3,'#4b5157','rx="1"');
+    });
+  });
+
+  /* נישה */
+  const cabX=nL+(nicheW-cabW)/2, cabBot=FL1-baseH-frameH, cabTop=cabBot-cabH;
+  g+=concrete(cabX-3,FL1-baseH,cabW+6,baseH);
+  g+=R(cabX-2,cabBot,cabW+4,frameH,'#2f5f9e','stroke="#1d3e6b" stroke-width="0.5"');
+  g+=concrete(nL-2,FL1-plinth,nicheW+4,plinth).replace(/<rect/,'<rect opacity=".55"');
+  g+=R(nL,FL1-plinth-door,2.5,door,'#9aa1a8')+R(nR-2.5,FL1-plinth-door,2.5,door,'#9aa1a8')+R(nL,FL1-plinth-door,nicheW,2.5,'#9aa1a8');
+
+  /* כבלי חח"י */
+  const cw=Math.max(5,o.d*S);
+  const cab=d=>P(d,'#1d5a29',cw)+P(d,'#3c9a4a',cw*0.55)+P(d,'#9be0a5',cw*0.15,'opacity=".8"');
+  const fIdx=o.net-1, fx=xs[fIdx], cMid=cabX+cabW/2, exIn=cMid+4, exOut=cMid-4, cgD=11, Rb=o.R;
+  const yH=FL1+6, yH2=FL1+10;
+  const dxI=exIn-fx, thI=dxI>=2*Rb?Math.PI/2:Math.acos(1-dxI/(2*Rb));
+  const ysI=yH+Rb*Math.sin(thI), yEI=yH-Rb*Math.sin(thI), p1x=fx+Rb*(1-Math.cos(thI)), p2x=exIn-Rb*(1-Math.cos(thI));
+  const pathIn=`M${X(fx)} ${Y(yBot)} L${X(fx)} ${Y(ysI)} A${X(Rb)} ${X(Rb)} 0 0 1 ${X(p1x)} ${Y(yH)} L${X(p2x)} ${Y(yH)} A${X(Rb)} ${X(Rb)} 0 0 0 ${X(exIn)} ${Y(yEI)}`;
+  const dxO=exOut-fx, Ru=Math.min(Rb,dxO/2), warn=Ru<Rb-0.05;
+  const pathOut=`M${X(exOut)} ${Y(yH2-Ru)} A${X(Ru)} ${X(Ru)} 0 0 1 ${X(exOut-Ru)} ${Y(yH2)} L${X(fx+Ru)} ${Y(yH2)} A${X(Ru)} ${X(Ru)} 0 0 1 ${X(fx)} ${Y(yH2-Ru)} L${X(fx)} ${Y(0)}`;
+  xs.forEach((x,i)=>{
+    if(i>=o.net) return;
+    if(i===fIdx){ g+=cab(pathIn)+cab(pathOut); }
+    else g+=cab(`M${X(x)} ${Y(yBot)} L${X(x)} ${Y(0)}`);
+    segs.forEach(([a,b])=>{ for(const y of supIn(a,b)){ if(i===fIdx&&y>yH2-Ru-3&&y<ysI+3) continue; g+=R(x-o.d/2-1.2,y-0.6,o.d+2.4,3.4,'#2b2f33','rx="0.8"'); }});
+  });
+  g+=`<clipPath id="${uid}cw"><rect x="${X(shR-4)}" y="0" width="${X(wallMid+8)}" height="${Y(totH)}"/></clipPath>`;
+  [pathIn,pathOut].forEach(d=>{ g+=`<g clip-path="url(#${uid}cw)" opacity=".92">`+P(d,'#8f8222',cgD*S,'stroke-linecap="butt"')+P(d,'#e3d54c',cgD*S*0.82,'stroke-linecap="butt" stroke-dasharray="2.4 1.6"')+`</g>`; });
+  const rMark=(cx,cy,rr,ang,txt,col)=>{ const px=cx+rr*Math.cos(ang), py=cy+rr*Math.sin(ang);
+    g+=L(cx-2,cy,cx+2,cy,col,1)+L(cx,cy-2,cx,cy+2,col,1)+L(cx,cy,px,py,col,1.1,'stroke-dasharray="4 3"');
+    g+=`<circle cx="${X(px)}" cy="${Y(py)}" r="2.2" fill="${col}"/>`;
+    g+=T(cx+2,cy-3,txt,10,col,'start','font-weight="700" '+halo); };
+  rMark(fx+Rb,ysI,Rb,Math.PI+thI/2,`R=${Rb}`,'#0b6b2b');
+  rMark(fx+Ru,yH2-Ru,Ru,Math.PI*0.75,warn?`R=${Math.round(Ru)} (נדרש ${Rb})`:`R=${Rb}`,warn?'#c8202f':'#0b6b2b');
+  /* ארון מונים */
+  {
+    const cx=cabX, cw2=cabW;
+    g+=R(cx+1.5,cabTop+2,cw2,cabH,'#000','opacity=".2"');
+    g+=R(cx,cabTop,cw2,cabH,`url(#${uid}mt)`,'stroke="#8a8f94" stroke-width="0.8" rx="1.2"');
+    g+=L(cx,cabTop+cabHu,cx+cw2,cabTop+cabHu,'#9ca2a8',1.2);
+    g+=L(cx+cw2/2,cabTop+2,cx+cw2/2,cabTop+cabH-2,'#a5abb1',0.9);
+    const perDoor=meters/2, cols=cab12?2:1, rows=perDoor/cols;
+    for(let dI=0;dI<2;dI++){
+      const dx=cx+dI*cw2/2, wx=dx+cw2/2*0.16, ww=cw2/2*0.68, wy=cabTop+10, wh=cabHu-20;
+      g+=R(wx-1.2,wy-1.2,ww+2.4,wh+2.4,'#141618','rx="3"');
+      g+=R(wx,wy,ww,wh,`url(#${uid}gl)`,'rx="2.4"');
+      for(let c=0;c<cols;c++)for(let rI=0;rI<rows;rI++){
+        const k=dI*perDoor+c*rows+rI, used=k<o.apts;
+        const mw=ww/cols-3, mh=wh/rows-4, mx=wx+1.5+c*(ww/cols), my=wy+2+rI*(wh/rows);
+        if(used){
+          g+=R(mx+mw*0.15,my+1,mw*0.7,mh*0.22,'#c9cdd1','opacity=".85" rx="0.6"');
+          g+=R(mx+mw*0.1,my+mh*0.3,mw*0.8,mh*0.66,'#d8dcdf','opacity=".8" rx="1"');
+          g+=R(mx+mw*0.2,my+mh*0.4,mw*0.6,mh*0.15,'#2c3a2c','opacity=".9"');
+        } else g+=R(mx+mw*0.1,my+mh*0.3,mw*0.8,mh*0.66,'#6d7378','opacity=".35" rx="1"');
+      }
+      g+=R(wx,wy,ww*0.35,wh,'#fff','opacity=".07"');
+    }
+    const hx=cx+cw2/2+cw2/2*0.05;
+    g+=R(hx,cabTop+cabHu*0.42,3.2,11,'#151515','rx="1.2"')+R(hx-2.5,cabTop+cabHu*0.42+5,4,2,'#151515','rx=".8"');
+    for(let dI=0;dI<2;dI++){
+      const sx=cx+dI*cw2/2+cw2/4-6, sy=cabTop+cabHu+cabHl*0.35;
+      g+=R(sx,sy,12,9,'#fff','stroke="#c8202f" stroke-width="0.5"');
+      g+=`<circle cx="${X(sx+6)}" cy="${Y(sy+3.6)}" r="${(2.2*S).toFixed(1)}" fill="none" stroke="#c8202f" stroke-width="1.6"/>`;
+      g+=R(sx+2,sy+6.8,8,1,'#444');
+    }
+    g+=R(hx,cabTop+cabHu+cabHl*0.55,2.6,8,'#151515','rx="1"');
+    g+=R(cx+cw2/2-3,cabTop+cabHu+3,6,4,'#fff','stroke="#999" stroke-width=".3"');
+  }
+
+  /* פס הארקות + כבלים לדירות */
+  const gm=6, glX=j=>cabX+gm+j*(cabW-2*gm)/(meters-1);
+  const gbY=cabTop-16, gbL=cabX+3, gbR=cabX+cabW-3;
+  g+=R(gbL-2,gbY-1.5,2,5,'#666')+R(gbR,gbY-1.5,2,5,'#666');
+  g+=R(gbL,gbY,gbR-gbL,2.6,`url(#${uid}cu)`,'stroke="#7a4a1d" stroke-width="0.4"');
+  const cores=['#7b4a24','#1b1b1b','#8c8f93','#2a62c9'];
+  const aptCab=d=>P(d,'#1d5a29',4.6)+P(d,'#3c9a4a',2.6)+P(d,'#9be0a5',0.8,'opacity=".8"');
+  const used=Math.min(o.apts,meters), st=glX(0), span=glX(Math.max(0,used-1))-st;
+  for(let j=0;j<meters;j++){
+    const ax=glX(j), busy=j<used;
+    g+=R(ax-2.4,cabTop-3.2,4.8,3.2,busy?'#2a2d31':'#6b7076','rx=".6"')+R(ax-1.8,cabTop-4.4,3.6,1.4,busy?'#1a1c1f':'#8a9096','rx=".5"');
+    if(!busy){ g+=R(ax-2,cabTop-5.4,4,1.2,'#9aa0a6','rx=".5"'); continue; }
+    const se=gbY-9;
+    g+=aptCab(`M${X(ax)} ${Y(nTop-4)} L${X(ax)} ${Y(se)}`);
+    g+=R(ax-1.7,se-1,3.4,2.2,'#123a19');
+    cores.forEach((c,k)=>{const ox=ax-1.5+k;g+=P(`M${X(ax-0.8+k*0.5)} ${Y(se)} L${X(ox)} ${Y(se+4)} L${X(ox)} ${Y(cabTop-4.4)}`,c,1.1);});
+    const gx=Math.min(gbR-2,ax+2.6);
+    const pe=`M${X(ax+0.6)} ${Y(se)} Q${X(ax+3)} ${Y(se+3)} ${X(gx)} ${Y(gbY)}`;
+    g+=P(pe,'#2f9e44',1.5)+P(pe,'#f2d22e',1.5,'stroke-dasharray="2 2"');
+    g+=`<circle cx="${X(gx)}" cy="${Y(gbY+1.3)}" r="1.5" fill="#5b3a17"/>`;
+  }
+  g+=R(nL,nTop,nicheW,18,`url(#${uid}sd)`);
+
+  /* מספרי הסבר */
+  const C=(x,y,k)=>`<circle cx="${X(x)}" cy="${Y(y)}" r="${(4.6*S).toFixed(1)}" fill="#c8202f" stroke="#fff" stroke-width="1.5"/>`+T(x,y+2.6,String(k),8,'#fff','middle','font-weight="700"');
+  const notes=[
+    ['הכבל הקרוב לארון (כבל '+o.feedNo+') – נכנס לארון מלמטה, קרוב למרכז','#1d5a29'],
+    ['יוצא מלמטה קרוב למרכז, חוזר לפיר וממשיך לקומה הבאה','#1d5a29'],
+    [o.apts+' כבלים ירוקים לדירות – לפטמות בראש הארון, משמאל לימין','#1d5a29'],
+    ['4 גידים נכנסים לארון · פטמה ריקה עם פקק','#26292d'],
+    ['גיד הארקה לפס הארקות','#7a4a1d'],
+    ['פס הארקות מעל הארון','#7a4a1d'],
+    ['ארון '+meters+' מונים על מסגרת – רוחב '+cabW+' · עומק 34 · גובה 204','#1f2328'],
+    ['צוקל בטון כ־4 ס״מ – הארון יושב עליו','#1f2328'],
+    ['צוקל סף הדלת 10 ס״מ · מילוי וריצוף 15 · תקרה 30','#1f2328'],
+    [sleeveTxt+' במעבר תקרה','#1f2328'],
+    ['סולם כבלים ותפסנים – 50 ס״מ מהרצפה ואז כל 1 מ׳','#1f2328'],
+    ['צינור שרשורי 110 מ״מ בחציית המחיצה','#6b5f12'],
+    [`רדיוס כיפוף מינימלי לכבל ${o.alt} ממ״ר: R=${Rb} ס״מ`,'#0b6b2b']];
+  if(o.apts>12) notes.push(['⚠ בקומה '+o.apts+' דירות – נדרש יותר מארון 12 אחד; מוצג ארון אחד','#c8202f']);
+  if(warn) notes.push([`⚠ חסר מקום לרדיוס הכיפוף ביציאה: נדרש ${(2*Rb).toFixed(0)} ס״מ אופקית, קיים ${dxO.toFixed(0)}`,'#c8202f']);
+  g+=C(shR-7,FL1+slab+22,1);
+  g+=C(shR-7,yH2-Ru*0.55,2);
+  g+=C(shR+wallMid/2,FL1-12,12);
+  g+=C(nR+wallT/2,nTop+8,3);
+  g+=C(nR-6,cabTop-5,4);
+  g+=C(nR-6,gbY-3,5);
+  g+=C(gbL-7,gbY+1,6);
+  g+=C(cabX+cabW/2,cabTop+cabHu+cabHl*0.82,7);
+  g+=C(cabX+cabW+7,FL1-3,8);
+  g+=C(nL+7,FL1-plinth/2-1,9);
+  g+=C(lR+9,FL1+slab/2,10);
+  g+=C(lR+9,FL1-150,11);
+  { const lx=dimX+4, ly0=FL1+slab+40;
+    g+=T(lx,ly0-10,'מקרא',10.5,'#1f2328','start','font-weight="700"');
+    notes.forEach(([t,c],i)=>{ const y=ly0+i*8.2; g+=C(lx+5,y-2.6,i+1).replace(/r="[\d.]+"/,`r="${(3.6*S).toFixed(1)}"`); g+=T(lx+12,y,t,9.5,c,'start'); }); }
+  [[FL2,'קומה '+(o.floor+1)],[FL1,'קומה '+o.floor]].forEach(([y,l])=>g+=T(1,y-4,l,9.5,'#5f6670','start'));
+  g+=T(1,FL1+slab+14,o.floor-1<=0?'קרקע':'קומה '+(o.floor-1),9.5,'#5f6670','start');
+
+  /* מידות */
+  const dimH=yBot+26;
+  g+=L(shL,dimH,shR,dimH,'#c8202f',1.2,arr('r'))+L(shL,yBot+4,shL,dimH+4,'#c8202f',.6)+L(shR,yBot+4,shR,dimH+4,'#c8202f',.6);
+  g+=T((shL+shR)/2,dimH-3,`רוחב פיר חח״י ${o.W} ס״מ`,12,'#c8202f','middle','font-weight="700"');
+  g+=T((shL+shR)/2,dimH+14,`${sleeveTxt} בכל מעבר תקרה · ס = ספר (שרוול סגור)`,9.5,'#555');
+  xs.forEach((x,i)=>g+=T(x,yBot+12,i<o.net?String(o.labels[i]):'ס',9.5,i<o.net?'#1d5a29':'#888'));
+  const hy=nTop-6;
+  g+=L(nL,hy,nR,hy,'#c8202f',1.1,arr('r'));
+  g+=T((nL+nR)/2,hy-3,`רוחב נישה ${nicheW}`,10.5,'#c8202f','middle','font-weight="700" '+halo);
+  const vd=(x,y1,y2,t,c,col)=>{g+=L(x,y1,x,y2,c,1.1,arr(col))+L(x-4,y1,x+4,y1,c,.6)+L(x-4,y2,x+4,y2,c,.6)+T(x+4,(y1+y2)/2+3,t,10,c,'start');};
+  vd(dimX+12,FL1-plinth,FL1,'צוקל 10','#c8202f','r');
+  vd(dimX+12,FL1-plinth-door,FL1-plinth,'דלת 230','#c8202f','r');
+  vd(dimX+50,nTop,FL1,'נישה 240','#555','g');
+
+  /* חתך צד */
+  {
+    const bx=secX+20, fx=bx+depth;
+    g+=T((secX+fx+20)/2,FL2+slab+16,'חתך צד – נישה',11,'#1f2328','middle','font-weight="700"');
+    g+=floorBuild(secX,FL1,fx-secX+25,false);
+    g+=concrete(secX,FL2+slab,20,FL1-FL2-slab);
+    g+=concrete(bx,FL2+slab,depth+25,nTop-FL2-slab);
+    g+=R(bx,nTop,depth,nicheH,'#ebe8e2');
+    g+=concrete(bx+4,FL1-baseH,frameD,baseH);
+    g+=concrete(fx-2,FL1-plinth,12,plinth);
+    g+=R(bx+4,cabBot,frameD,frameH,'#2f5f9e');
+    g+=R(bx+4,cabTop,frameD,cabH,`url(#${uid}mt)`,'stroke="#8a8f94" stroke-width=".8"');
+    g+=L(bx+4,cabTop+cabHu,bx+4+frameD,cabTop+cabHu,'#9ca2a8',1);
+    g+=R(fx,FL1-plinth-door,2,door,'#7d858c');
+    g+=R(bx+6,gbY,2,3,'#b87333');
+    g+=P(`M${X(bx+20)} ${Y(nTop)} L${X(bx+20)} ${Y(cabTop)}`,'#26292d',3);
+    g+=P(`M${X(secX+10)} ${Y(FL1+8)} L${X(bx+8)} ${Y(FL1+8)} Q${X(bx+14)} ${Y(FL1+8)} ${X(bx+14)} ${Y(FL1+2)} L${X(bx+14)} ${Y(cabBot)}`,'#3c9a4a',4);
+    const dy=FL1+slab+12;
+    g+=L(bx,dy,fx,dy,'#c8202f',1.1,arr('r'))+L(bx,FL1+slab,bx,dy+4,'#c8202f',.5)+L(fx,FL1+slab,fx,dy+4,'#c8202f',.5);
+    g+=T((bx+fx)/2,dy+13,'עומק 45',10.5,'#c8202f','middle','font-weight="700"');
+    g+=T(bx+4+frameD/2,cabTop-4,`ארון ${frameD}`,8.5,'#444','middle',halo);
+    g+=T(fx+14,FL1-plinth-door/2,'דלת',8.5,'#555','start',halo);
+    const ty=cabTop+cabHu*0.5;
+    g+=L(bx,ty,bx+4,ty,'#c8202f',1)+T(bx+2,ty-3,'4',9.5,'#c8202f','middle','font-weight="700" '+halo);
+  }
+
+  const defs=`<defs>
+   <linearGradient id="${uid}cc" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d9d5cd"/><stop offset="1" stop-color="#c6c1b7"/></linearGradient>
+   <linearGradient id="${uid}sh" x1="0" x2="1"><stop offset="0" stop-color="#8f8b84"/><stop offset=".5" stop-color="#b3afa7"/><stop offset="1" stop-color="#8f8b84"/></linearGradient>
+   <linearGradient id="${uid}nb" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#d4d0c8"/><stop offset="1" stop-color="#ebe8e2"/></linearGradient>
+   <linearGradient id="${uid}sd" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity=".3"/><stop offset="1" stop-color="#000" stop-opacity="0"/></linearGradient>
+   <linearGradient id="${uid}mt" x1="0" x2="1"><stop offset="0" stop-color="#d2d3cf"/><stop offset=".5" stop-color="#ecedea"/><stop offset="1" stop-color="#c5c7c3"/></linearGradient>
+   <linearGradient id="${uid}gl" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#3a4148"/><stop offset=".5" stop-color="#22272c"/><stop offset="1" stop-color="#2e353b"/></linearGradient>
+   <linearGradient id="${uid}pvc" x1="0" x2="1"><stop offset="0" stop-color="#8e949a"/><stop offset=".4" stop-color="#dfe3e6"/><stop offset="1" stop-color="#8e949a"/></linearGradient>
+   <linearGradient id="${uid}gv" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#e3e7ea"/><stop offset="1" stop-color="#9aa1a8"/></linearGradient>
+   <linearGradient id="${uid}gvv" x1="0" x2="1"><stop offset="0" stop-color="#e3e7ea"/><stop offset="1" stop-color="#9aa1a8"/></linearGradient>
+   <linearGradient id="${uid}cu" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#f0b27a"/><stop offset=".5" stop-color="#c8783a"/><stop offset="1" stop-color="#8a4d1e"/></linearGradient>
+   <pattern id="${uid}fl" width="6" height="6" patternUnits="userSpaceOnUse"><rect width="6" height="6" fill="#e4ded2"/><circle cx="1.5" cy="1.5" r=".7" fill="#b3aa98"/><circle cx="4.5" cy="4" r=".5" fill="#c2b9a8"/></pattern>
+   <filter id="${uid}nz" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.55" numOctaves="3" seed="${o.alt}"/><feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1.6 -0.55"/><feComposite in2="SourceGraphic" operator="in"/></filter>
+   <marker id="${uid}ar" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 2 L10 5 L0 8z" fill="#c8202f"/></marker>
+   <marker id="${uid}ag" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 2 L10 5 L0 8z" fill="#555"/></marker>
+  </defs>`;
+  return `<svg viewBox="0 0 ${X(totW)} ${Y(totH)}" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI,Arial">${defs}${g}</svg>`;
+}
+
+/* ---------- הדמיה: פיר חח"י ונישת מונים בקומה עם הכי הרבה כבלים ---------- */
+const VIZ={'95':false,'240':false};
+function vizOpts(r,name){
+  const fl=LAST.floors.find(f=>f.n>0); if(!fl||!r.tot) return null;
+  const f=fl.f, feed=r.assign[f].no;
+  const pass=r.cables.filter(c=>c.top>=f).map(c=>c.no);
+  const others=pass.filter(no=>no!==feed).sort((a,b)=>b-a);
+  const labels=[...others,feed];
+  return {alt:+name,W:r.width,d:r.D,gap:r.sp,wall:r.wall,R:r.bend,net:labels.length,spare:r.spare,apts:fl.n,floor:f,labels,feedNo:feed};
+}
+function vizBlock(r,name){
+  const on=VIZ[name], o=on?vizOpts(r,name):null;
+  return `<div class="vizbar"><button class="btn small vizbtn" data-viz="${name}" title="הדמיה של הפיר ונישת המונים בקומה עם הכי הרבה כבלים">🏗 ${on?'הסתרת הדמיה':'הצגת הדמיה'}</button></div>`+
+    (on?`<div class="vizbox">${o?drawShaftNiche(o):'<div class="muted">אין נתונים להדמיה</div>'}</div>`:'');
+}
+document.addEventListener('click',e=>{ const b=e.target.closest('.vizbtn'); if(!b) return; VIZ[b.dataset.viz]=!VIZ[b.dataset.viz]; recalc(); });
+
 function renderAlt(r,el,name,color){
   const st = r.over.length ? `<div class="status badb">חריגה: בקומות ${r.over.join(', ')} הזרם של קומה בודדת עובר ${r.limit}A – כבל אחד לא מספיק לקומה. מומלץ כבל 240 או פיצול.</div>`
            : (r.tot? `<div class="status okb">תקין – כל הכבלים עד ${r.limit}A</div>` : `<div class="status">אין דירות לחישוב</div>`);
   el.innerHTML = `<h2><span class="num">${name==='95'?5:6}</span><span class="tag">${name}</span> חלופת כבל ${name} ממ״ר</h2>
+   ${vizBlock(r,name)}
    <div class="kpis">
      <div class="kpi main"><b>${r.width||0}</b><small>רוחב פיר מעוגל [ס״מ]</small></div>
      <div class="kpi"><b>${r.net}</b><small>כבלים נטו</small></div>
