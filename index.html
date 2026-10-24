@@ -99,6 +99,7 @@ th{background:#f1f3f5;font-weight:600}
 .tblwrap{overflow:auto;max-height:520px;border-radius:8px}
 .tblwrap thead th{position:sticky;top:0}
 .vizbar{margin:0 0 8px}
+.expsel{height:var(--h);border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);font:inherit;padding:0 8px;cursor:pointer}
 .vizpage{position:fixed;inset:0;background:#fff;z-index:1000;display:flex;flex-direction:column}
 .vzhead{display:flex;align-items:center;gap:10px 16px;flex-wrap:wrap;padding:8px 16px;border-bottom:3px solid var(--red);background:#fff}
 .vzhead img{height:42px}
@@ -157,6 +158,7 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:10px 0 20px}
     <input type="file" id="fLoad" accept=".json" hidden>
   </div>
   <div class="tgrp">
+    <select id="expAlt" class="expsel" title="איזו חלופה לכלול בייצוא (Excel, Word, PDF)"><option value="95">ייצוא: כבל 95</option><option value="240">ייצוא: כבל 240</option></select>
     <button class="btn" id="bXlsx" title="ייצוא החישוב לקובץ אקסל">ייצוא Excel</button>
     <button class="btn" id="bDoc" title="ייצוא החישוב לקובץ וורד">ייצוא Word</button>
     <button class="btn" id="bPdf" title="ייצוא החישוב לקובץ PDF">ייצוא PDF</button>
@@ -276,7 +278,7 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:10px 0 20px}
 <footer>טיקטין תכנון חשמל · <span id="ver2"></span></footer>
 
 <script>
-const VERSION = 'V14';
+const VERSION = 'V15';
 document.getElementById('ver').textContent = 'גרסה ' + VERSION;
 document.getElementById('ver2').textContent = 'גרסה ' + VERSION;
 
@@ -855,7 +857,7 @@ function drawShaftNiche(o){
    <marker id="${uid}az" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 2 L10 5 L0 8z" fill="#2e7d32"/></marker>
    <marker id="${uid}ag" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 2 L10 5 L0 8z" fill="#555"/></marker>
   </defs>`;
-  return `<svg viewBox="0 0 ${X(totW)} ${Y(totH)}" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI,Arial">${defs}${o.mirror?`<g transform="translate(${X(totW)},0) scale(-1,1)">${g}</g>`:g}</svg>`;
+  return `<svg viewBox="0 0 ${X(totW)} ${Y(totH)}" width="${X(totW)}" height="${Y(totH)}" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI,Arial">${defs}${o.mirror?`<g transform="translate(${X(totW)},0) scale(-1,1)">${g}</g>`:g}</svg>`;
 }
 
 /* ---------- הדמיה: פיר חח"י ונישת מונים בקומה עם הכי הרבה כבלים ---------- */
@@ -974,17 +976,18 @@ const esc = v => String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replac
 const todayStr = () => new Date().toLocaleDateString('he-IL');
 const fit = (img,maxW,maxH) => { if(!img) return {w:0,h:0}; const k=Math.min(maxW/img.w, maxH/img.h, 1.6); return {w:Math.round(img.w*k), h:Math.round(img.h*k)}; };
 
+const EXP={alt:'95'};   // חלופה לייצוא – ברירת מחדל כבל 95
 async function reportData(){
-  const R=LAST;
+  const R=LAST, an=EXP.alt, r=R['a'+an], col=an==='95'?'#1f5fbf':'#8a3ab9';
   const tn=R.floors.reduce((s,f)=>s+f.n,0), tp=R.floors.reduce((s,f)=>s+f.p,0);
+  const vo=r&&r.tot?vizOpts(r,an):null;
   const img = {
     logo: {src: document.querySelector('header img').src, w:259, h:112},
-    plan95: await svgToPng(svgFromString(planSVG(R.a95,'#1f5fbf')),2),
-    plan240: await svgToPng(svgFromString(planSVG(R.a240,'#8a3ab9')),2),
-    elev95: await svgToPng(svgFromString(elevSVG(R.a95,'#1f5fbf',R.N)),2),
-    elev240: await svgToPng(svgFromString(elevSVG(R.a240,'#8a3ab9',R.N)),2)
+    plan: await svgToPng(svgFromString(planSVG(r,col)),2),
+    elev: await svgToPng(svgFromString(elevSVG(r,col,R.N)),2),
+    viz: vo ? await svgToPng(svgFromString(drawShaftNiche(vo)),1.6) : null
   };
-  return {R,tn,tp,img};
+  return {R,tn,tp,img,an,r,col,pk:'c'+an,vo};
 }
 const spName = k => S.params[k].spMode==='2d' ? '2 × קוטר' : 'לפי חח״י';
 const statusTxt = r => !r.tot ? 'אין דירות' : (r.over.length ? 'חריגה בקומות '+r.over.join(', ') : 'תקין');
@@ -1004,7 +1007,7 @@ function rHeader(d, imgRef){
     <td style="width:150px;padding:0 0 8px;vertical-align:middle;text-align:right"><img src="${imgRef('logo')}" width="140" height="60" style="width:140px;height:60px"></td>
     <td style="padding:0 12px 8px;vertical-align:middle;text-align:right">
       <div style="font-size:16pt;font-weight:bold;color:${RC.dark}">חישוב רוחב פיר חברת חשמל</div>
-      <div style="font-size:10pt;color:${RC.muted}">כבלים ורטיקליים 95 ו־240 ממ״ר אלומיניום · לפי מחשבון העומסים של חח״י</div>
+      <div style="font-size:10pt;color:${RC.muted}">כבל ${d.an} ממ״ר אלומיניום · לפי מחשבון העומסים של חח״י</div>
     </td>
     <td style="width:170px;padding:0 0 8px;vertical-align:middle;text-align:left;font-size:9pt;color:${RC.muted};line-height:1.6">
       פרויקט: <b style="color:${RC.dark}">${esc(S.project)||'–'}</b><br>בניין: <b style="color:${RC.dark}">${esc(S.building)||'–'}</b><br>תאריך: ${todayStr()}
@@ -1012,64 +1015,60 @@ function rHeader(d, imgRef){
    </tr></table>`;
 }
 function rKpi(label, val, color){
-  return `<td style="border:2px solid ${color};background:#fff;padding:10px 6px;text-align:center;width:50%">
+  return `<td style="border:2px solid ${color};background:#fff;padding:10px 6px;text-align:center">
     <div style="font-size:10pt;color:${RC.muted}">${label}</div>
     <div style="font-size:26pt;font-weight:bold;color:${color};line-height:1.2">${val}</div>
     <div style="font-size:9pt;color:${RC.muted}">ס״מ – רוחב פיר נדרש</div></td>`;
 }
-/* ---- common report content (data rows) ---- */
+/* ---- common report content (data rows) – חלופה אחת ---- */
 function reportContent(d){
-  const {R,tn,tp}=d, A=R.a95, B=R.a240;
+  const {R,tn,tp,an,pk}=d, A=d.r;
   const info=[['שם פרויקט',S.project||'–','בניין',S.building||'–'],['קומות מעל קרקע',R.N,'סה״כ יח״ד',tn],['Σ שיא ביקוש דירתי',fmt(tp)+' kVA','אזור בקעת הירדן והערבה',S.jordan==='yes'?'כן':'לא'],['גידול שנתי / שנות חישוב','1% / 5 שנים','מקדם גידול',fmt(R.gf,3)]];
-  const sum=[['זרם מרבי לכבל [A]',A.limit,B.limit],['כבלים נטו (לפי עומס)',A.net,B.net],['כבלי ספר',A.spare,B.spare],['סה״כ כבלים בפיר',A.tot,B.tot],['קוטר כבל [ס״מ]',fmt(A.D),fmt(B.D)],['שיטת מרווח',spName('c95'),spName('c240')],['מרווח בין כבלים [ס״מ]',fmt(A.sp),fmt(B.sp)],['מרחק כבל קיצוני לקיר [ס״מ]',fmt(A.wall),fmt(B.wall)],['½ רדיוס כיפוף [ס״מ]',fmt(A.bend/2),fmt(B.bend/2)],['רוחב מחושב לפני עיגול [ס״מ]',fmt(A.raw),fmt(B.raw)],['רוחב פיר נדרש [ס״מ]',A.width,B.width],['סטטוס',statusTxt(A),statusTxt(B)]];
+  const sum=[['זרם מרבי לכבל [A]',A.limit],['כבלים נטו (לפי עומס)',A.net],['כבלי ספר',A.spare],['סה״כ כבלים בפיר',A.tot],['קוטר כבל [ס״מ]',fmt(A.D)],['שיטת מרווח',spName(pk)],['מרווח בין כבלים [ס״מ]',fmt(A.sp)],['מרחק כבל קיצוני לקיר [ס״מ]',fmt(A.wall)],['½ רדיוס כיפוף [ס״מ]',fmt(A.bend/2)],['רוחב מחושב לפני עיגול [ס״מ]',fmt(A.raw)],['רוחב פיר נדרש [ס״מ]',A.width],['סטטוס',statusTxt(A)]];
   const cabHead=['כבל','קומות','דירות','מקדם התלכדות','הספק [kVA]','זרם [A]','ניצול'];
   const cab=r=>r.cables.map(c=>[c.no,`${c.from}–${c.to}`,c.n,fmt(c.k,2),fmt(c.kva),fmt(c.i),Math.round(c.util*100)+'%']);
   const gHead=['מקבץ','קומות','דירות בקומה','חדרים','שטח [מ״ר]','גודל חיבור','שיא ביקוש לדירה [kVA]'];
   const groups=[]; S.groups.forEach((g,gi)=>g.types.forEach(t=>{ if(!t.count&&!t.rooms) return; const dm=demand(t.rooms,t.conn); groups.push([gi+1,`${g.from}–${g.to}`,t.count||0,t.rooms?ROOM_LBL[t.rooms]:'–',t.area||'–',t.conn?CONN_LBL(t.conn):'–',fmt(dm.p)+(dm.subst?' ✱':'')]); }));
-  const fHead=['קומה','מקבץ','דירות','Σ שיא ביקוש [kVA]','כבל 95','זרם מצטבר 95 [A]','כבל 240','זרם מצטבר 240 [A]'];
-  const floors=[...R.floors].reverse().map(f=>[f.f===0?'0 (קרקע)':f.f,f.g===null?'–':f.g+1,f.n+(f.subst&&f.n?' ✱':''),fmt(f.p),A.assign[f.f].no,fmt(A.assign[f.f].i),B.assign[f.f].no,fmt(B.assign[f.f].i)]);
+  const fHead=['קומה','מקבץ','דירות','Σ שיא ביקוש [kVA]',`כבל ${an}`,`זרם מצטבר ${an} [A]`];
+  const floors=[...R.floors].reverse().map(f=>[f.f===0?'0 (קרקע)':f.f,f.g===null?'–':f.g+1,f.n+(f.subst&&f.n?' ✱':''),fmt(f.p),A.assign[f.f].no,fmt(A.assign[f.f].i)]);
   const anySubst=substItems().length>0;
   const method=[
     ['עומס לכבל',' – לפי מחשבון העומסים של חח״י (נוהל 733-006-004-010): הספק [kVA] = מקדם התלכדות (לפי מס׳ הדירות על הכבל) × Σ שיא ביקוש דירתי ÷ 0.95.'],
     ['זרם',' = הספק × 1000 ÷ (√3 × 400) × 1.051 (גידול שנתי 1% לאורך 5 שנים).'],
-    ['חלוקת כבלים',' – מלמטה למעלה בקומות שלמות; כבל אוסף קומות עד שהזרם עובר את הגבול (95 ממ״ר – 160A, 240 ממ״ר – 315A) ואז מתחיל כבל חדש.'],
+    ['חלוקת כבלים',` – מלמטה למעלה בקומות שלמות; כבל אוסף קומות עד שהזרם עובר את הגבול (${A.limit}A לכבל ${an} ממ״ר) ואז מתחיל כבל חדש.`],
     ['רוחב פיר',' = כבלים × קוטר + (כבלים − 1) × מרווח + 2 × מרחק לקיר + ½ רדיוס כיפוף, מעוגל כלפי מעלה ל־5 ס״מ. מינימום: כבל אחד 40 ס״מ, שני כבלים 60 ס״מ. הפיר אינו מוצר לגובה.'],
-    ['מרווח בין כבלים',' – לפי חח״י: 10 ס״מ (95) / 16 ס״מ (240), או 2 × קוטר הכבל.'],
+    ['מרווח בין כבלים',` – לפי חח״י: ${an==='95'?'10':'16'} ס״מ, או 2 × קוטר הכבל.`],
     ['גודל חיבור ברירת מחדל',' – 2–4 חדרים 3X25A; 5 חדרים 3X25A (מ־120 מ״ר 3X40A); 6 חדרים ומעלה 3X40A.']
   ];
   const starItems=substItems();
-  const starNote=starItems.join('\n');
-  return {A,B,info,sum,cabHead,c95:cab(A),c240:cab(B),gHead,groups,fHead,floors,anySubst,method,starNote,starItems};
+  return {A,an,info,sum,cabHead,cab:cab(A),gHead,groups,fHead,floors,anySubst,method,starItems};
 }
+const vizTitle=d=>`הדמיה – פיר חח״י ונישת מונים${d.vo?` (קומה ${d.vo.floor})`:''}`;
 
 /* ---- PDF blocks (HTML, flowed into A4 pages) ---- */
 function reportBlocks(d){
-  const C=reportContent(d), {A,B}=C, img=d.img, src=k=>img[k].src;
+  const C=reportContent(d), A=C.A, img=d.img, src=k=>img[k].src, col=d.col, an=d.an;
   const blocks=[]; let n=0; const T=t=>rTitle(++n,t);
   const infoHtml=C.info.map(r=>`<tr>${r.map((c,j)=>`<td style="border:1px solid ${RC.line};padding:5px 8px;font-size:9.5pt;text-align:right;${j%2===0?`background:${RC.head};color:${RC.muted};width:22%`:'width:28%;font-weight:bold'}">${esc(c)}</td>`).join('')}</tr>`).join('');
   blocks.push(T('פרטי פרויקט')+`<table dir="rtl" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;width:100%">${infoHtml}</table>`);
-  blocks.push(T('תוצאות – רוחב פיר נדרש')+`<table dir="rtl" width="100%" cellspacing="8" cellpadding="0" style="width:100%;border-collapse:separate"><tr>${rKpi('חלופת כבל 95 ממ״ר',A.width,RC.c95)}${rKpi('חלופת כבל 240 ממ״ר',B.width,RC.c240)}</tr></table>`);
+  blocks.push(T('תוצאה – רוחב פיר נדרש')+`<table dir="rtl" width="100%" cellspacing="8" cellpadding="0" style="width:100%;border-collapse:separate"><tr>${rKpi(`כבל ${an} ממ״ר`,A.width,col)}</tr></table>`);
   const hi=C.sum.length-2;
   const starBox = C.anySubst ? `<table dir="rtl" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;width:100%;margin-top:8px"><tr><td style="background:#fff8e6;border:1px solid #f0d48a;border-right:4px solid #e0a800;padding:7px 10px;font-size:8.8pt;line-height:1.6;text-align:right;color:#1f2328"><b>הערה – דירות המסומנות ✱</b><br>${C.starItems.map(esc).join('<br>')}</td></tr></table>` : '';
-  blocks.push(T('השוואת חלופות')+rTable(['נתון','כבל 95 ממ״ר','כבל 240 ממ״ר'],C.sum.map((r,i)=>i===hi?r.map((c,j)=>`<b style="color:${RC.red};${j?'font-size:11pt':''}">${esc(c)}</b>`):(i===3?r.map(c=>`<b>${esc(c)}</b>`):r.map(esc))),{colStyle:{0:'text-align:right;width:44%'}})+starBox);
+  blocks.push(T('נתוני החלופה')+rTable(['נתון',`כבל ${an} ממ״ר`],C.sum.map((r,i)=>i===hi?r.map((c,j)=>`<b style="color:${RC.red};${j?'font-size:11pt':''}">${esc(c)}</b>`):(i===3?r.map(c=>`<b>${esc(c)}</b>`):r.map(esc))),{colStyle:{0:'text-align:right;width:60%'}})+starBox);
   blocks.push(T('שיטת החישוב')+`<table dir="rtl" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;width:100%"><tr><td style="background:${RC.head};border:1px solid ${RC.line};padding:9px 12px;font-size:9pt;line-height:1.75;text-align:right;color:${RC.dark}">${C.method.map(([b,t])=>`<b>${b}</b>${esc(t)}`).join('<br>')}</td></tr></table>`);
-  const planCell=(k,lbl,col,w)=>{ const f=fit(img[k],690,230); return `<tr><td style="border:1px solid ${RC.line};padding:6px;text-align:center"><div style="font-size:10pt;font-weight:bold;color:${col};margin-bottom:4px;text-align:right">${lbl} – ${w} ס״מ</div>${img[k]?`<img src="${src(k)}" style="width:${f.w}px;height:${f.h}px">`:'–'}</td></tr>`; };
-  blocks.push(T('חתך פיר – מבט על')+`<table dir="rtl" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;width:100%">${planCell('plan95','כבל 95 ממ״ר',RC.c95,A.width)}${planCell('plan240','כבל 240 ממ״ר',RC.c240,B.width)}</table>`);
-  const cabBlocks=(rows,lbl,col,first)=>{ for(let i=0;i<Math.max(rows.length,1);i+=28){ blocks.push((first&&i===0?T('חלוקת כבלים – עומס לכל כבל'):'')+`<div style="font-size:10.5pt;font-weight:bold;color:${col};margin:10px 0 4px;text-align:right">${lbl}${i?' (המשך)':''}</div>`+rTable(C.cabHead,rows.slice(i,i+28),{fs:'9pt'})); } };
-  cabBlocks(C.c95,`כבל 95 ממ״ר – ${A.net} כבלים + ${A.spare} ספר (עד ${A.limit}A לכבל)`,RC.c95,true);
-  cabBlocks(C.c240,`כבל 240 ממ״ר – ${B.net} כבלים + ${B.spare} ספר (עד ${B.limit}A לכבל)`,RC.c240,false);
-  const e95=fit(img.elev95,335,600), e240=fit(img.elev240,335,600);
-  blocks.push(T('חתך אנכי – כבלים לפי קומות')+`<table dir="rtl" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;width:100%"><tr>
-     <td style="width:50%;text-align:center;vertical-align:top;padding:6px;border:1px solid ${RC.line}"><div style="font-size:9.5pt;font-weight:bold;color:${RC.c95};margin-bottom:4px">כבל 95 ממ״ר</div>${img.elev95?`<img src="${src('elev95')}" style="width:${e95.w}px;height:${e95.h}px">`:'–'}</td>
-     <td style="width:50%;text-align:center;vertical-align:top;padding:6px;border:1px solid ${RC.line}"><div style="font-size:9.5pt;font-weight:bold;color:${RC.c240};margin-bottom:4px">כבל 240 ממ״ר</div>${img.elev240?`<img src="${src('elev240')}" style="width:${e240.w}px;height:${e240.h}px">`:'–'}</td>
-   </tr></table><div style="font-size:8.5pt;color:${RC.muted};margin-top:4px;text-align:right">קו מלא – כבל פעיל עד הקומה העליונה שהוא מזין · קו מקווקו – כבל ספר לכל גובה הבניין.</div>`);
+  if(img.viz){ const f=fit(img.viz,710,820); blocks.push(T(vizTitle(d))+`<div style="text-align:center;border:1px solid ${RC.line};padding:4px"><img src="${src('viz')}" style="width:${f.w}px;height:${f.h}px"></div>`); }
+  { const f=fit(img.plan,690,230); blocks.push(T('חתך פיר – מבט על')+`<table dir="rtl" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;width:100%"><tr><td style="border:1px solid ${RC.line};padding:6px;text-align:center"><div style="font-size:10pt;font-weight:bold;color:${col};margin-bottom:4px;text-align:right">כבל ${an} ממ״ר – ${A.width} ס״מ</div>${img.plan?`<img src="${src('plan')}" style="width:${f.w}px;height:${f.h}px">`:'–'}</td></tr></table>`); }
+  for(let i=0;i<Math.max(C.cab.length,1);i+=28) blocks.push((i===0?T('חלוקת כבלים – עומס לכל כבל'):'')+`<div style="font-size:10.5pt;font-weight:bold;color:${col};margin:10px 0 4px;text-align:right">כבל ${an} ממ״ר – ${A.net} כבלים + ${A.spare} ספר (עד ${A.limit}A לכבל)${i?' (המשך)':''}</div>`+rTable(C.cabHead,C.cab.slice(i,i+28),{fs:'9pt'}));
+  { const e=fit(img.elev,500,640); blocks.push(T('חתך אנכי – כבלים לפי קומות')+`<div style="text-align:center;border:1px solid ${RC.line};padding:6px">${img.elev?`<img src="${src('elev')}" style="width:${e.w}px;height:${e.h}px">`:'–'}</div><div style="font-size:8.5pt;color:${RC.muted};margin-top:4px;text-align:right">קו מלא – כבל פעיל עד הקומה העליונה שהוא מזין · קו מקווקו – כבל ספר לכל גובה הבניין.</div>`); }
   blocks.push(T('נתוני הזנה – מקבצי קומות ודירות')+rTable(C.gHead,C.groups)+starBox);
-  const fl=C.floors.map(r=>r.map((c,j)=>j===4?`<b style="color:${RC.c95}">${c}</b>`:(j===6?`<b style="color:${RC.c240}">${c}</b>`:esc(c))));
+  const fl=C.floors.map(r=>r.map((c,j)=>j===4?`<b style="color:${col}">${c}</b>`:esc(c)));
   const fT=T('פירוט לפי קומות');
   for(let i=0;i<fl.length;i+=34) blocks.push((i===0?fT:`<div style="font-size:10pt;font-weight:bold;margin:8px 0 4px;text-align:right">פירוט לפי קומות (המשך)</div>`)+rTable(C.fHead,fl.slice(i,i+34),{fs:'9pt'}));
   if(C.anySubst) blocks.push(starBox);
   return blocks;
 }
+{ const sel=document.getElementById('expAlt'); if(sel){ sel.value=EXP.alt; sel.addEventListener('change',()=>{ EXP.alt=sel.value; }); }
+  const rb=document.getElementById('bReset'); if(rb) rb.addEventListener('click',()=>{ EXP.alt='95'; if(sel) sel.value='95'; }); }
 function rFooter(i,n){
   return `<table dir="rtl" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;width:100%;border-top:1px solid ${RC.line}"><tr>
     <td style="padding-top:5px;font-size:8pt;color:${RC.muted};text-align:right">טיקטין תכנון חשמל בע״מ · הופק ${todayStr()} · מחשבון פיר ${VERSION}</td>
@@ -1112,72 +1111,56 @@ document.getElementById('bDoc').addEventListener('click',async()=>{
   if(!window.docx){ alert('ספריית Word לא נטענה – בדוק חיבור לאינטרנט'); return; }
   const btn=document.getElementById('bDoc'); btn.disabled=true; const old=btn.textContent; btn.textContent='מכין Word…';
   try{
-  const D=window.docx; let d,C,A,B; const sections=[];
-  const {Document,Packer,Paragraph,TextRun,Table,TableRow,TableCell,WidthType,AlignmentType,BorderStyle,ShadingType,ImageRun,Header,Footer,PageNumber,VerticalAlign,HeightRule}=D;
+  const D=window.docx; let d,C,A; const sections=[];
+  const {Document,Packer,Paragraph,TextRun,Table,TableRow,TableCell,WidthType,AlignmentType,BorderStyle,ShadingType,ImageRun,Header,Footer,PageNumber,VerticalAlign}=D;
   const hex=c=>c.replace('#','').toUpperCase();
   const LANG={value:'he-IL',bidirectional:'he-IL'};
-  const run=(t,o={})=>new TextRun({text:String(t??''),font:'Arial',size:o.size||19,bold:!!o.bold,color:o.color?hex(o.color):undefined,rightToLeft:true,language:LANG,...(o.sup?{superScript:true}:{})});
+  const run=(t,o={})=>new TextRun({text:String(t??''),font:'Arial',size:o.size||19,bold:!!o.bold,color:o.color?hex(o.color):undefined,rightToLeft:true,language:LANG});
   const P=(parts,o={})=>new Paragraph({bidirectional:true,alignment:o.align||AlignmentType.START,spacing:{before:o.before||0,after:o.after??60,line:o.line},keepNext:!!o.keepNext,children:(Array.isArray(parts)?parts:[parts]).map(x=>typeof x==='string'?run(x,o):x)});
   const bin=src=>{ const b=atob(src.split(',')[1]); const u=new Uint8Array(b.length); for(let i=0;i<b.length;i++) u[i]=b.charCodeAt(i); return u; };
   const IMG=(k,maxW,maxH)=>{ const im=d.img[k]; if(!im) return run('–'); const f=fit(im,maxW,maxH); return new ImageRun({data:bin(im.src),transformation:{width:f.w,height:f.h}}); };
   const bLine={style:BorderStyle.SINGLE,size:4,color:'CFD4DA'}, bNone={style:BorderStyle.NONE,size:0,color:'FFFFFF'};
   const allB={top:bLine,bottom:bLine,left:bLine,right:bLine}, noB={top:bNone,bottom:bNone,left:bNone,right:bNone};
   const cell=(content,o={})=>new TableCell({children:Array.isArray(content)?content:[content],shading:o.fill?{type:ShadingType.CLEAR,color:'auto',fill:hex(o.fill)}:undefined,borders:o.borders||allB,verticalAlign:VerticalAlign.CENTER,margins:{top:50,bottom:50,left:80,right:80},width:o.width?{size:o.width,type:WidthType.PERCENTAGE}:undefined,columnSpan:o.span});
-  const table=(rows,widths)=>new Table({visuallyRightToLeft:true,width:{size:100,type:WidthType.PERCENTAGE},rows});
+  const table=(rows)=>new Table({visuallyRightToLeft:true,width:{size:100,type:WidthType.PERCENTAGE},rows});
+  const hb={style:BorderStyle.SINGLE,size:4,color:'1F2328'};
   const dataTable=(head,rows,o={})=>table([
-    new TableRow({tableHeader:true,cantSplit:true,children:head.map(h=>cell(P(h,{bold:true,color:'#ffffff',align:AlignmentType.CENTER,after:0,size:o.size||18}),{fill:RC.dark,borders:{top:{style:BorderStyle.SINGLE,size:4,color:'1F2328'},bottom:{style:BorderStyle.SINGLE,size:4,color:'1F2328'},left:{style:BorderStyle.SINGLE,size:4,color:'1F2328'},right:{style:BorderStyle.SINGLE,size:4,color:'1F2328'}}}))}),
+    new TableRow({tableHeader:true,cantSplit:true,children:head.map(h=>cell(P(h,{bold:true,color:'#ffffff',align:AlignmentType.CENTER,after:0,size:o.size||18}),{fill:RC.dark,borders:{top:hb,bottom:hb,left:hb,right:hb}}))}),
     ...rows.map((r,i)=>new TableRow({cantSplit:true,children:r.map((c,j)=>{ const st=o.style?o.style(i,j)||{}:{}; return cell(P(String(c),{align:j===0&&o.firstRight?AlignmentType.START:AlignmentType.CENTER,after:0,size:st.size||o.size||18,bold:st.bold,color:st.color}),{fill:st.fill||(i%2?'#fafbfc':null),width:o.widths?o.widths[j]:undefined}); })}))
   ]);
-  await forEachBuilding(async()=>{ d=await reportData(); C=reportContent(d); A=C.A; B=C.B;
+  await forEachBuilding(async()=>{ d=await reportData(); C=reportContent(d); A=C.A; const an=d.an, col=d.col;
   const starW=()=>table([new TableRow({cantSplit:true,children:[cell([P('הערה – דירות המסומנות ✱',{bold:true,size:18,after:40}),...C.starItems.map(t=>P(t,{size:17,after:30}))],{fill:'#fff8e6',borders:{top:{style:BorderStyle.SINGLE,size:4,color:'F0D48A'},bottom:{style:BorderStyle.SINGLE,size:4,color:'F0D48A'},left:{style:BorderStyle.SINGLE,size:4,color:'F0D48A'},right:{style:BorderStyle.SINGLE,size:18,color:'E0A800'}}})]})]);
   let n=0; const H2=t=>P([run((++n)+'. ',{bold:true,size:26,color:RC.red}),run(t,{bold:true,size:26,color:RC.dark})],{before:240,after:100,keepNext:true});
-  const sp=()=>P('',{after:60});
   const children=[];
-  // 1 info
   children.push(H2('פרטי פרויקט'));
   children.push(table(C.info.map(r=>new TableRow({children:r.map((c,j)=>cell(P(String(c),{after:0,size:19,bold:j%2===1,color:j%2===0?RC.muted:RC.dark}),{fill:j%2===0?RC.head:null,width:j%2===0?22:28}))}))));
-  // 2 KPI
-  children.push(H2('תוצאות – רוחב פיר נדרש'));
-  const kpi=(lbl,v,col)=>cell([P(lbl,{align:AlignmentType.CENTER,color:RC.muted,size:20,after:0}),P(String(v),{align:AlignmentType.CENTER,bold:true,size:56,color:col,after:0}),P('ס״מ – רוחב פיר נדרש',{align:AlignmentType.CENTER,color:RC.muted,size:17,after:0})],{width:50,borders:{top:{style:BorderStyle.SINGLE,size:16,color:hex(col)},bottom:{style:BorderStyle.SINGLE,size:16,color:hex(col)},left:{style:BorderStyle.SINGLE,size:16,color:hex(col)},right:{style:BorderStyle.SINGLE,size:16,color:hex(col)}}});
-  children.push(table([new TableRow({children:[kpi('חלופת כבל 95 ממ״ר',A.width,RC.c95),kpi('חלופת כבל 240 ממ״ר',B.width,RC.c240)]})]));
-  // 3 comparison
-  children.push(H2('השוואת חלופות'));
+  children.push(H2('תוצאה – רוחב פיר נדרש'));
+  const cb={style:BorderStyle.SINGLE,size:16,color:hex(col)};
+  children.push(table([new TableRow({children:[cell([P(`כבל ${an} ממ״ר`,{align:AlignmentType.CENTER,color:RC.muted,size:20,after:0}),P(String(A.width),{align:AlignmentType.CENTER,bold:true,size:56,color:col,after:0}),P('ס״מ – רוחב פיר נדרש',{align:AlignmentType.CENTER,color:RC.muted,size:17,after:0})],{borders:{top:cb,bottom:cb,left:cb,right:cb}})]})]));
+  children.push(H2('נתוני החלופה'));
   const hi=C.sum.length-2;
-  children.push(dataTable(['נתון','כבל 95 ממ״ר','כבל 240 ממ״ר'],C.sum,{firstRight:true,widths:[44,28,28],style:(i,j)=>i===hi?{bold:true,color:RC.red,fill:RC.soft,size:j?24:18}:(i===3?{bold:true}:null)}));
+  children.push(dataTable(['נתון',`כבל ${an} ממ״ר`],C.sum,{firstRight:true,widths:[60,40],style:(i,j)=>i===hi?{bold:true,color:RC.red,fill:RC.soft,size:j?24:18}:(i===3?{bold:true}:null)}));
   if(C.anySubst) children.push(starW());
-  // 4 method
   children.push(H2('שיטת החישוב'));
   children.push(table([new TableRow({children:[cell(C.method.map(([b,t])=>P([run(b,{bold:true,size:18}),run(t,{size:18})],{after:40})),{fill:RC.head})]})]));
-  // 5 plans
+  if(d.img.viz){ children.push(H2(vizTitle(d))); children.push(P([IMG('viz',640,780)],{align:AlignmentType.CENTER,after:60})); }
   children.push(H2('חתך פיר – מבט על'));
-  children.push(table([
-    new TableRow({cantSplit:true,children:[cell([P(`כבל 95 ממ״ר – ${A.width} ס״מ`,{bold:true,color:RC.c95,after:40}),P([IMG('plan95',600,230)],{align:AlignmentType.CENTER,after:0})])]}),
-    new TableRow({cantSplit:true,children:[cell([P(`כבל 240 ממ״ר – ${B.width} ס״מ`,{bold:true,color:RC.c240,after:40}),P([IMG('plan240',600,230)],{align:AlignmentType.CENTER,after:0})])]})
-  ]));
-  // 6 cables
+  children.push(table([new TableRow({cantSplit:true,children:[cell([P(`כבל ${an} ממ״ר – ${A.width} ס״מ`,{bold:true,color:col,after:40}),P([IMG('plan',600,230)],{align:AlignmentType.CENTER,after:0})])]})]));
   children.push(H2('חלוקת כבלים – עומס לכל כבל'));
-  children.push(P(`כבל 95 ממ״ר – ${A.net} כבלים + ${A.spare} ספר (עד ${A.limit}A לכבל)`,{bold:true,color:RC.c95,keepNext:true,before:60}));
-  children.push(dataTable(C.cabHead,C.c95));
-  children.push(P(`כבל 240 ממ״ר – ${B.net} כבלים + ${B.spare} ספר (עד ${B.limit}A לכבל)`,{bold:true,color:RC.c240,keepNext:true,before:160}));
-  children.push(dataTable(C.cabHead,C.c240));
-  // 7 elevations
+  children.push(P(`כבל ${an} ממ״ר – ${A.net} כבלים + ${A.spare} ספר (עד ${A.limit}A לכבל)`,{bold:true,color:col,keepNext:true,before:60}));
+  children.push(dataTable(C.cabHead,C.cab));
   children.push(H2('חתך אנכי – כבלים לפי קומות'));
-  children.push(table([new TableRow({cantSplit:true,children:[
-    cell([P('כבל 95 ממ״ר',{bold:true,color:RC.c95,align:AlignmentType.CENTER,after:40}),P([IMG('elev95',300,560)],{align:AlignmentType.CENTER,after:0})],{width:50}),
-    cell([P('כבל 240 ממ״ר',{bold:true,color:RC.c240,align:AlignmentType.CENTER,after:40}),P([IMG('elev240',300,560)],{align:AlignmentType.CENTER,after:0})],{width:50})]})]));
+  children.push(P([IMG('elev',450,600)],{align:AlignmentType.CENTER,after:40}));
   children.push(P('קו מלא – כבל פעיל עד הקומה העליונה שהוא מזין · קו מקווקו – כבל ספר לכל גובה הבניין.',{size:16,color:RC.muted,before:40}));
-  // 8 groups
   children.push(H2('נתוני הזנה – מקבצי קומות ודירות'));
   children.push(dataTable(C.gHead,C.groups));
   if(C.anySubst) children.push(starW());
-  // 9 floors
   children.push(H2('פירוט לפי קומות'));
-  children.push(dataTable(C.fHead,C.floors,{size:17,style:(i,j)=>j===4?{bold:true,color:RC.c95}:(j===6?{bold:true,color:RC.c240}:null)}));
+  children.push(dataTable(C.fHead,C.floors,{size:17,style:(i,j)=>j===4?{bold:true,color:col}:null}));
   if(C.anySubst) children.push(starW());
-  // header / footer
   const header=new Header({children:[table([new TableRow({children:[
      cell(P([IMG('logo',120,52)],{after:0}),{borders:noB,width:20}),
-     cell([P('חישוב רוחב פיר חברת חשמל',{bold:true,size:26,after:0}),P('כבלים ורטיקליים 95 ו־240 ממ״ר אלומיניום · לפי מחשבון העומסים של חח״י',{size:16,color:RC.muted,after:0})],{borders:noB,width:58}),
+     cell([P('חישוב רוחב פיר חברת חשמל',{bold:true,size:26,after:0}),P(`כבל ${an} ממ״ר אלומיניום · לפי מחשבון העומסים של חח״י`,{size:16,color:RC.muted,after:0})],{borders:noB,width:58}),
      cell([P(`פרויקט: ${S.project||'–'}`,{size:16,color:RC.muted,after:0,align:AlignmentType.END}),P(`בניין: ${S.building||'–'}`,{size:16,color:RC.muted,after:0,align:AlignmentType.END}),P(`תאריך: ${todayStr()}`,{size:16,color:RC.muted,after:0,align:AlignmentType.END})],{borders:noB,width:22})
    ]})]), new Paragraph({border:{bottom:{style:BorderStyle.SINGLE,size:18,color:'C8202F',space:1}},children:[]})]});
   const footer=new Footer({children:[new Paragraph({bidirectional:true,border:{top:{style:BorderStyle.SINGLE,size:4,color:'CFD4DA',space:4}},children:[
@@ -1203,16 +1186,16 @@ document.getElementById('bXlsx').addEventListener('click',async()=>{
   const border={top:thin,left:thin,bottom:thin,right:thin};
   const fillOf=c=>({type:'pattern',pattern:'solid',fgColor:{argb:c}});
   const logoId=wb.addImage({base64:d0.img.logo.src,extension:'png'});
+  const an=d0.an, argbCol=an==='95'?'FF1F5FBF':'FF8A3AB9';
   function sheet(name, cols){
     const ws=wb.addWorksheet(name,{views:[{rightToLeft:true,showGridLines:false}],pageSetup:{paperSize:9,orientation:'portrait',fitToPage:true,fitToWidth:1,fitToHeight:0,margins:{left:0.4,right:0.4,top:0.5,bottom:0.5,header:0.2,footer:0.2}}});
     ws.columns=cols.map(w=>({width:w}));
     ws.headerFooter.oddFooter='&Rטיקטין תכנון חשמל בע״מ&Lעמוד &P מתוך &N';
-    // header block
     ws.addImage(logoId,{tl:{col:0.1,row:0.15},ext:{width:150,height:65}});
     for(let r=1;r<=4;r++) ws.getRow(r).height=17;
     const last=String.fromCharCode(64+cols.length);
     ws.mergeCells(`C1:${last}2`); const t=ws.getCell('C1'); t.value='חישוב רוחב פיר חברת חשמל'; t.font={name:'Arial',size:16,bold:true,color:{argb:'FF1F2328'}}; t.alignment={horizontal:'right',vertical:'middle',readingOrder:'rtl'};
-    ws.mergeCells(`C3:${last}3`); const s=ws.getCell('C3'); s.value='כבלים ורטיקליים 95 ו־240 ממ״ר אלומיניום · לפי מחשבון העומסים של חח״י'; s.font={name:'Arial',size:10,color:{argb:'FF5F6670'}}; s.alignment={horizontal:'right',readingOrder:'rtl'};
+    ws.mergeCells(`C3:${last}3`); const s=ws.getCell('C3'); s.value=`כבל ${an} ממ״ר אלומיניום · לפי מחשבון העומסים של חח״י`; s.font={name:'Arial',size:10,color:{argb:'FF5F6670'}}; s.alignment={horizontal:'right',readingOrder:'rtl'};
     ws.mergeCells(`C4:${last}4`); const p=ws.getCell('C4'); p.value=`פרויקט: ${S.project||'–'}   ·   בניין: ${S.building||'–'}   ·   תאריך: ${todayStr()}   ·   ${VERSION}`; p.font={name:'Arial',size:9,color:{argb:'FF5F6670'}}; p.alignment={horizontal:'right',readingOrder:'rtl'};
     const r5=ws.getRow(5); r5.height=6; for(let c=1;c<=cols.length;c++) ws.getCell(5,c).border={bottom:{style:'medium',color:{argb:'FFC8202F'}}};
     ws._next=7; return ws;
@@ -1232,50 +1215,45 @@ document.getElementById('bXlsx').addEventListener('click',async()=>{
   }
   const r1=v=>Math.round(v*10)/10;
   await forEachBuilding(async(bb,bi)=>{
-  const d=await reportData(), {R,tn,tp,img}=d, A=R.a95, Bc=R.a240;
+  const d=await reportData(), {R,tn,tp,img}=d, A=d.r;
   const pre = PROJ.list.length>1 ? bldName(bb,bi).replace(/[\\\/?*\[\]:]/g,'').slice(0,16)+' - ' : '';
+  const addImg=(ws,im,row,maxW)=>{ if(!im) return 0; const k=Math.min(maxW/im.w,1.2); const id=wb.addImage({base64:im.src,extension:'png'}); ws.addImage(id,{tl:{col:0.1,row:row-1},ext:{width:im.w*k,height:im.h*k}}); return Math.ceil(im.h*k/20)+1; };
   // --- sheet 1: summary
-  const ws=sheet(pre+'סיכום',[34,22,22,6,6,6,6,6]);
+  const ws=sheet(pre+'סיכום',[34,22,6,6,6,6,6,6]);
   title(ws,'פרטי פרויקט',1);
   table(ws,['נתון','ערך'],[['שם פרויקט',S.project||'–'],['בניין',S.building||'–'],['קומות מעל קרקע',R.N],['סה״כ יח״ד',tn],['Σ שיא ביקוש דירתי [kVA]',r1(tp)],['אזור בקעת הירדן והערבה',S.jordan==='yes'?'כן':'לא'],['גידול שנתי / שנות חישוב','1% / 5 שנים'],['מקדם גידול',+R.gf.toFixed(3)]],{firstRight:true});
-  title(ws,'השוואת חלופות',2);
-  const sr=[['זרם מרבי לכבל [A]',A.limit,Bc.limit],['כבלים נטו (לפי עומס)',A.net,Bc.net],['כבלי ספר',A.spare,Bc.spare],['סה״כ כבלים בפיר',A.tot,Bc.tot],['קוטר כבל [ס״מ]',A.D,Bc.D],['שיטת מרווח',spName('c95'),spName('c240')],['מרווח בין כבלים [ס״מ]',A.sp,Bc.sp],['מרחק כבל קיצוני לקיר [ס״מ]',A.wall,Bc.wall],['½ רדיוס כיפוף [ס״מ]',A.bend/2,Bc.bend/2],['רוחב מחושב לפני עיגול [ס״מ]',r1(A.raw),r1(Bc.raw)],['רוחב פיר נדרש [ס״מ]',A.width,Bc.width],['סטטוס',statusTxt(A),statusTxt(Bc)]];
+  title(ws,`נתוני החלופה – כבל ${an} ממ״ר`,2);
+  const sr=[['זרם מרבי לכבל [A]',A.limit],['כבלים נטו (לפי עומס)',A.net],['כבלי ספר',A.spare],['סה״כ כבלים בפיר',A.tot],['קוטר כבל [ס״מ]',A.D],['שיטת מרווח',spName(d.pk)],['מרווח בין כבלים [ס״מ]',A.sp],['מרחק כבל קיצוני לקיר [ס״מ]',A.wall],['½ רדיוס כיפוף [ס״מ]',A.bend/2],['רוחב מחושב לפני עיגול [ס״מ]',r1(A.raw)],['רוחב פיר נדרש [ס״מ]',A.width],['סטטוס',statusTxt(A)]];
   const hi=sr.length-2;
-  table(ws,['נתון','כבל 95 ממ״ר','כבל 240 ממ״ר'],sr,{firstRight:true,
-    fill:(ri)=>ri===hi?'FFFFF4EF':null,
-    font:(ri,i)=>ri===hi?{bold:true,size:i?14:10,color:{argb:'FFC8202F'}}:(ri===3?{bold:true}:null)});
+  table(ws,['נתון',`כבל ${an} ממ״ר`],sr,{firstRight:true,fill:(ri)=>ri===hi?'FFFFF4EF':null,font:(ri,i)=>ri===hi?{bold:true,size:i?14:10,color:{argb:'FFC8202F'}}:(ri===3?{bold:true}:null)});
   const stars=substItems();
   const noteX=(w)=>{ if(!stars.length) return; let r=w._next; const nc=w.columns.length;
     [ 'הערה – דירות המסומנות ✱', ...stars ].forEach((t,k)=>{ w.mergeCells(r,1,r,nc); const c=w.getCell(r,1); c.value=t; c.font={name:'Arial',size:k?9:10,bold:!k}; c.alignment={horizontal:'right',vertical:'middle',wrapText:true,readingOrder:'rtl'}; c.fill=fillOf('FFFFF8E6'); w.getRow(r).height=k?30:18; r++; });
     w._next=r+1; };
   noteX(ws);
   title(ws,'חתך פיר – מבט על',3);
-  let rr=ws._next;
-  const addImg=(im,row,maxW)=>{ if(!im) return 0; const k=Math.min(maxW/im.w,1.2); const id=wb.addImage({base64:im.src,extension:'png'}); ws.addImage(id,{tl:{col:0.1,row:row-1},ext:{width:im.w*k,height:im.h*k}}); return Math.ceil(im.h*k/20)+1; };
-  ws.getCell(rr,1).value='כבל 95 ממ״ר'; ws.getCell(rr,1).font={name:'Arial',bold:true,color:{argb:'FF1F5FBF'}};
-  rr+=1; rr+=addImg(img.plan95,rr,480);
-  ws.getCell(rr,1).value='כבל 240 ממ״ר'; ws.getCell(rr,1).font={name:'Arial',bold:true,color:{argb:'FF8A3AB9'}};
-  rr+=1; rr+=addImg(img.plan240,rr,480);
-  // --- sheet 2: cables
+  let rr=ws._next; ws.getCell(rr,1).value=`כבל ${an} ממ״ר`; ws.getCell(rr,1).font={name:'Arial',bold:true,color:{argb:argbCol}};
+  rr+=1; rr+=addImg(ws,img.plan,rr,480);
+  // --- sheet 2: visualization
+  if(img.viz){ const wv=sheet(pre+'הדמיה',[12,12,12,12,12,12,12,12]); title(wv,vizTitle(d),4); addImg(wv,img.viz,wv._next,700); }
+  // --- sheet 3: cables + elevation
   const wc=sheet(pre+'כבלים',[10,14,10,16,14,14,12,4]);
   const cr=r=>r.cables.map(c=>[c.no,`${c.from}–${c.to}`,c.n,+c.k.toFixed(2),r1(c.kva),r1(c.i),Math.round(c.util*100)/100]);
-  const cf={6:'0%'};
-  title(wc,`כבל 95 ממ״ר – ${A.net} כבלים + ${A.spare} ספר (עד ${A.limit}A)`,4);
-  table(wc,['כבל','קומות','דירות','מקדם התלכדות','הספק [kVA]','זרם [A]','ניצול'],cr(A),{numFmt:cf});
-  title(wc,`כבל 240 ממ״ר – ${Bc.net} כבלים + ${Bc.spare} ספר (עד ${Bc.limit}A)`,5);
-  table(wc,['כבל','קומות','דירות','מקדם התלכדות','הספק [kVA]','זרם [A]','ניצול'],cr(Bc),{numFmt:cf});
-  // --- sheet 3: groups
+  title(wc,`כבל ${an} ממ״ר – ${A.net} כבלים + ${A.spare} ספר (עד ${A.limit}A)`,5);
+  table(wc,['כבל','קומות','דירות','מקדם התלכדות','הספק [kVA]','זרם [A]','ניצול'],cr(A),{numFmt:{6:'0%'}});
+  title(wc,'חתך אנכי – כבלים לפי קומות',6); addImg(wc,img.elev,wc._next,420);
+  // --- sheet 4: groups
   const wg=sheet(pre+'מקבצי קומות',[9,12,12,10,11,13,16,4]);
-  title(wg,'נתוני הזנה – מקבצי קומות ודירות',6);
+  title(wg,'נתוני הזנה – מקבצי קומות ודירות',7);
   const gr=[]; S.groups.forEach((g,gi)=>g.types.forEach(t=>{ if(!t.count&&!t.rooms) return; gr.push([gi+1,`${g.from}–${g.to}`,num(t.count),t.rooms?ROOM_LBL[t.rooms]:'–',t.area===''?'–':num(t.area),t.conn?CONN_LBL(t.conn):'–',(()=>{const dm=demand(t.rooms,t.conn); return dm.subst?dm.p+' ✱':dm.p;})()]); }));
   table(wg,['מקבץ','קומות','דירות בקומה','חדרים','שטח [מ״ר]','גודל חיבור','שיא ביקוש לדירה [kVA]'],gr);
   noteX(wg);
-  // --- sheet 4: floors
-  const wf=sheet(pre+'פירוט קומות',[10,9,9,14,10,14,10,14]);
-  title(wf,'פירוט לפי קומות',7);
-  table(wf,['קומה','מקבץ','דירות','Σ שיא ביקוש [kVA]','כבל 95','זרם מצטבר 95 [A]','כבל 240','זרם מצטבר 240 [A]'],
-    [...R.floors].reverse().map(f=>[f.f===0?'0 (קרקע)':f.f,f.g===null?'–':f.g+1,f.subst&&f.n?f.n+' ✱':f.n,r1(f.p),A.assign[f.f].no,r1(A.assign[f.f].i),Bc.assign[f.f].no,r1(Bc.assign[f.f].i)]),
-    {font:(ri,i)=>i===4?{bold:true,color:{argb:'FF1F5FBF'}}:(i===6?{bold:true,color:{argb:'FF8A3AB9'}}:null)});
+  // --- sheet 5: floors
+  const wf=sheet(pre+'פירוט קומות',[10,9,9,14,10,14,4,4]);
+  title(wf,'פירוט לפי קומות',8);
+  table(wf,['קומה','מקבץ','דירות','Σ שיא ביקוש [kVA]',`כבל ${an}`,`זרם מצטבר ${an} [A]`],
+    [...R.floors].reverse().map(f=>[f.f===0?'0 (קרקע)':f.f,f.g===null?'–':f.g+1,f.subst&&f.n?f.n+' ✱':f.n,r1(f.p),A.assign[f.f].no,r1(A.assign[f.f].i)]),
+    {font:(ri,i)=>i===4?{bold:true,color:{argb:argbCol}}:null});
   noteX(wf);
   });
   const buf=await wb.xlsx.writeBuffer();
