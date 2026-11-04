@@ -278,9 +278,19 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:10px 0 20px}
 <footer>טיקטין תכנון חשמל · <span id="ver2"></span></footer>
 
 <script>
-const VERSION = 'V15';
-document.getElementById('ver').textContent = 'גרסה ' + VERSION;
-document.getElementById('ver2').textContent = 'גרסה ' + VERSION;
+/* ---- קבלת נתונים מאפליקציה אחרת של המשרד + כפתור חזרה ---- */
+const TK_HANDOFF=(function(KEY){ let h=null; try{ const u=new URL(location.href);
+  if(u.searchParams.has('handoff')){ const o=JSON.parse(localStorage.getItem('tiktin_handoff')||'null');
+    if(o&&o.to===KEY&&Date.now()-o.ts<1800000){ h=o; localStorage.removeItem('tiktin_handoff'); sessionStorage.setItem('tiktin_return_'+KEY,JSON.stringify({url:o.returnUrl,title:o.fromTitle})); }
+    u.searchParams.delete('handoff'); history.replaceState(null,'',u.pathname+u.search+u.hash); }
+  const r=JSON.parse(sessionStorage.getItem('tiktin_return_'+KEY)||'null');
+  if(r&&r.url){ const add=()=>{ const hd=document.querySelector('header'); if(!hd||hd.querySelector('.tk-back')) return; const a=document.createElement('a'); a.href=r.url; a.className='tk-back'; a.textContent='↩ חזרה ל'+r.title; a.title='חזרה לאפליקציה הקודמת – הנתונים שמולאו שם נשמרו'; a.style.cssText='display:inline-flex;align-items:center;height:34px;padding:0 12px;border:1.5px solid #c8202f;border-radius:8px;color:#c8202f;background:#fff;font-size:14px;font-weight:600;text-decoration:none;white-space:nowrap;flex:none'; a.addEventListener('click',()=>{ try{ sessionStorage.removeItem('tiktin_return_'+KEY); }catch(e){} }); hd.appendChild(a); };
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',add); else add(); }
+}catch(e){} return h; })('shaft');
+if(TK_HANDOFF&&TK_HANDOFF.state){ try{ localStorage.setItem('tiktin_iec_shaft2', JSON.stringify(TK_HANDOFF.state)); }catch(e){} }
+const VERSION = 'V16';
+document.getElementById('ver').textContent = 'גרסה ' + VERSION + ' · 04.11.2026';
+document.getElementById('ver2').textContent = 'גרסה ' + VERSION + ' · 04.11.2026';
 
 /* ---------- גודל טופס (ללא השפעה על הדפדפן) ---------- */
 (function(){
